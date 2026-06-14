@@ -42,6 +42,14 @@ reports/*
 # HuggingFace / model caches
 .cache/
 hf_cache/
+.huggingface/
+
+# Local model snapshots redirected into the project (weights, tokenizers, etc.)
+models/
+*.model        # sentencepiece tokenizers
+*.onnx
+*.gguf
+*.h5
 
 # OS / editor
 .DS_Store

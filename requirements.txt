@@ -22,7 +22,13 @@ bitsandbytes>=0.43
 
 # --- Retrieval (dense embeddings + cross-encoder reranking) ---
 sentence-transformers>=3.0
-faiss-cpu>=1.8
+# retrieval_engine.py is GPU-only (no CPU fallback) and requires a GPU FAISS
+# build that exposes faiss.StandardGpuResources. Preferred install (Linux/CUDA):
+#     conda install -c pytorch faiss-gpu
+# PyPI faiss-gpu wheels are Linux-only; on Windows use WSL2 (or relax the engine
+# to faiss-cpu). faiss-cpu is listed below only as a non-GPU dev/lint fallback.
+faiss-gpu>=1.7 ; platform_system != "Windows"
+faiss-cpu>=1.8 ; platform_system == "Windows"
 
 # --- Tokenizer / model support deps ---
 sentencepiece>=0.2
