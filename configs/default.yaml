@@ -1,0 +1,96 @@
+# =============================================================================
+# FinAlignRAG — Centralized Configuration (baseline hyperparameters)
+# -----------------------------------------------------------------------------
+# Per the Implementation Playbook, this file is the single source of truth for
+# all model names, retrieval parameters, and training hyperparameters. Do NOT
+# scatter hyperparameters across source files; read them from here.
+# =============================================================================
+
+project:
+  name: FinAlignRAG
+  seed: 42
+
+# -----------------------------------------------------------------------------
+# Model names (architecture spec)
+# -----------------------------------------------------------------------------
+models:
+  base_model: Qwen/Qwen2.5-7B-Instruct          # SLM under ablation
+  embedding_model: BAAI/bge-large-en-v1.5       # dense retriever
+  reranker_model: cross-encoder/ms-marco-MiniLM-L-6-v2  # cross-encoder reranker
+
+# -----------------------------------------------------------------------------
+# Data pipeline (Step 1) — ingestion, chunking, split-by-ticker leakage control
+# -----------------------------------------------------------------------------
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  sft_dir: data/sft
+  dpo_dir: data/dpo
+  chunk_size: 512        # tokens (whitespace-token units in the chunker)
+  overlap: 50            # token overlap between consecutive chunks
+  split:
+    by: ticker           # split by company ticker to prevent leakage
+    train_ratio: 0.70
+    val_ratio: 0.15
+    test_ratio: 0.15
+
+# -----------------------------------------------------------------------------
+# Retrieval engine (Step 2) — dense + cross-encoder two-stage RAG
+# -----------------------------------------------------------------------------
+retrieval:
+  index_type: IndexFlatIP   # FAISS inner-product index
+  normalize_l2: true        # L2-normalize doc & query vectors before IP search
+  top_k_dense: 15           # dense candidates retrieved before reranking
+  top_k_rerank: 5           # final chunks returned after cross-encoder rerank
+
+# -----------------------------------------------------------------------------
+# Training (Step 4) — QLoRA SFT + DPO
+# -----------------------------------------------------------------------------
+training:
+  output_dir: outputs
+  sft_adapter_dir: outputs/sft_adapter
+  dpo_adapter_dir: outputs/dpo_adapter
+
+  # LoRA / QLoRA
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+  # Optimization
+  learning_rate: 2.0e-4
+  batch_size: 1                     # per-device; 12 GB VRAM is tight for 7B QLoRA
+  gradient_accumulation_steps: 16   # effective batch size = 16
+  logging_steps: 10
+  max_steps: 1000
+  seed: 42
+
+  # Precision
+  # Hardware Target = NVIDIA Titan X (Pascal, sm_61). Pascal does NOT support
+  # bfloat16, so we use fp16 mixed precision per the playbook Hardware Target.
+  # Do NOT enable bf16 on this GPU.
+  fp16: true
+  gradient_checkpointing: true   # required to fit 7B QLoRA within 12 GB VRAM
+
+  # 4-bit quantization (BitsAndBytes)
+  quantization:
+    load_in_4bit: true
+    bnb_4bit_quant_type: nf4
+    bnb_4bit_compute_dtype: float16   # Pascal: float16 (bfloat16 unsupported)
+    bnb_4bit_use_double_quant: true
+
+  # Debug mode (playbook: max_steps=5)
+  debug:
+    max_steps: 5
+
+  # DPO-specific
+  dpo:
+    beta: 0.1
+
+# -----------------------------------------------------------------------------
+# Evaluation harness (Step 3)
+# -----------------------------------------------------------------------------
+eval:
+  numerical_tolerance: 0.001   # 0.1% relative error margin
+  retrieval_recall_k: 5
+  report_path: reports/ablation_results.md

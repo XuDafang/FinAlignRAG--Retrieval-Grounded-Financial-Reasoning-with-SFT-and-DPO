@@ -1,0 +1,40 @@
+# FinAlignRAG — Retrieval-Grounded Financial Reasoning with SFT and DPO
+# ---------------------------------------------------------------------------
+# HARDWARE NOTE (Titan X Pascal, compute capability sm_61, 12 GB VRAM):
+#   * bitsandbytes 4-bit NF4 quantization works on Pascal.
+#   * bfloat16 is NOT natively supported on Pascal — training must use fp16
+#     instead of bf16 (the playbook's default of bf16 will fail / fall back).
+#   * flash-attention requires Ampere (sm_80+) and is intentionally EXCLUDED.
+#   * Install a CUDA build of torch matching your driver, e.g.:
+#       pip install torch --index-url https://download.pytorch.org/whl/cu121
+# ---------------------------------------------------------------------------
+
+# --- Core deep learning ---
+torch>=2.1,<2.6
+transformers>=4.45
+accelerate>=0.34
+datasets>=2.20
+
+# --- Parameter-efficient fine-tuning & alignment (SFT + DPO) ---
+peft>=0.13
+trl>=0.11
+bitsandbytes>=0.43
+
+# --- Retrieval (dense embeddings + cross-encoder reranking) ---
+sentence-transformers>=3.0
+faiss-cpu>=1.8
+
+# --- Tokenizer / model support deps ---
+sentencepiece>=0.2
+protobuf>=4.25
+einops>=0.8
+
+# --- Data / numerics / config ---
+numpy>=1.26,<2.0
+pandas>=2.0
+pyyaml>=6.0
+scikit-learn>=1.3
+tqdm>=4.66
+
+# --- Testing (pytest suites are required by the playbook steps) ---
+pytest>=8.0

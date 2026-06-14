@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# ML / training artifacts
+outputs/sft_adapter/*
+outputs/dpo_adapter/*
+!outputs/sft_adapter/.gitkeep
+!outputs/dpo_adapter/.gitkeep
+*.bin
+*.safetensors
+*.pt
+*.ckpt
+
+# Raw datasets — never track / push / clone .json data files
+# (FinQA / ConvFinQA / EDGAR dumps live in data/*.json and are large).
+# NOTE: this matches *.json ONLY — *.jsonl (predictions, sft/dpo splits) is
+# NOT matched and remains trackable. To force-keep a specific json, add an
+# explicit exception below, e.g.  !configs/schema.json
+*.json
+
+# FAISS indexes / processed artifacts
+*.faiss
+*.index
+data/processed/*
+data/sft/*
+data/dpo/*
+!data/processed/.gitkeep
+!data/sft/.gitkeep
+!data/dpo/.gitkeep
+
+# Reports are generated, keep the dir only
+reports/*
+!reports/.gitkeep
+
+# HuggingFace / model caches
+.cache/
+hf_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Docx unpack scratch (from document analysis)
+unpacked_arch/
+unpacked_playbook/
