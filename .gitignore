@@ -16,7 +16,9 @@ outputs/dpo_adapter/*
 *.bin
 *.safetensors
 *.pt
+*.pth
 *.ckpt
+*.msgpack
 
 # Raw datasets — never track / push / clone .json data files
 # (FinQA / ConvFinQA / EDGAR dumps live in data/*.json and are large).
@@ -44,12 +46,39 @@ reports/*
 hf_cache/
 .huggingface/
 
-# Local model snapshots redirected into the project (weights, tokenizers, etc.)
+# Models — ignore ANY model (weights, tokenizers, checkpoints) in ANY location.
+# Common local model/checkpoint directories
 models/
-*.model        # sentencepiece tokenizers
+pretrained/
+pretrained_models/
+saved_models/
+model_cache/
+checkpoints/
+checkpoint-*/
+**/checkpoint-*/
+# Weight / serialized-model formats not already covered above
+# (.gitignore has NO inline comments — keep notes on their own lines)
+*.model
 *.onnx
 *.gguf
+*.ggml
 *.h5
+*.pb
+*.tflite
+*.mlmodel
+# TensorRT
+*.engine
+*.trt
+*.plan
+# PaddlePaddle / MXNet / Caffe / Torch-legacy
+*.pdparams
+*.params
+*.caffemodel
+*.t7
+# sklearn / generic pickled artifacts
+*.joblib
+*.pkl
+*.pickle
 
 # OS / editor
 .DS_Store
