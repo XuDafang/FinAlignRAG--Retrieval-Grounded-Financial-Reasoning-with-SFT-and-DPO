@@ -17,7 +17,9 @@ datasets>=2.20
 
 # --- Parameter-efficient fine-tuning & alignment (SFT + DPO) ---
 peft>=0.13
-trl>=0.11
+# alignment.py targets the TRL ~0.11-0.12 API (SFTConfig/DPOConfig with
+# dataset_text_field/max_seq_length/beta). Newer TRL renames some of these.
+trl>=0.11,<0.13
 bitsandbytes>=0.43
 
 # --- Retrieval (dense embeddings + cross-encoder reranking) ---
