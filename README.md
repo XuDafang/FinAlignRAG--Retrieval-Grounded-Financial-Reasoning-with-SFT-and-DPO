@@ -116,7 +116,7 @@ After running the full pipeline, `rag_pipeline.py` writes one line per question 
   "system_name": "sft_dpo_two_stage_rag",
   "question": "What was the percentage change in net cash from operating activities from 2008 to 2009?",
   "ground_truth_answer": "14.1%",
-  "predicted_json": "{\"answer\": \"14.1%\", \"calculation\": \"(206588 - 181001) / 181001\", \"evidence\": \"Net cash from operating activities was $206,588 in 2009 and $181,001 in 2008\", \"confidence\": 0.95, \"insufficient_context\": false}",
+  "predicted_json": "{"answer": "14.1%", "calculation": "(206588 - 181001) / 181001", "evidence": "Net cash from operating activities was $206,588 in 2009 and $181,001 in 2008", "confidence": 0.95, "insufficient_context": false}",
   "retrieved_chunks": [
     {
       "chunk_id": "JKHY_2009_page28_000",
@@ -227,7 +227,7 @@ SFT training expects a JSONL where each line has
   "source_doc_id": "JKHY_2009_page28",
   "text": "<retrieved context chunks concatenated>",
   "question": "What was the percentage change in net cash from operating activities from 2008 to 2009?",
-  "target_json": "{\"answer\": \"14.1%\", \"calculation\": \"(206588 - 181001) / 181001\", \"evidence\": \"Net cash was $206,588 in 2009 and $181,001 in 2008\", \"confidence\": 0.95, \"insufficient_context\": false}"
+  "target_json": "{"answer": "14.1%", "calculation": "(206588 - 181001) / 181001", "evidence": "Net cash was $206,588 in 2009 and $181,001 in 2008", "confidence": 0.95, "insufficient_context": false}"
 }
 ```
 
@@ -261,8 +261,8 @@ and `rejected` (flawed answer JSON — arithmetic error, fabricated evidence, et
 {
   "text": "<retrieved context>",
   "question": "What was the percentage change in net cash from operating activities?",
-  "chosen":   "{\"answer\": \"14.1%\", \"calculation\": \"(206588 - 181001) / 181001\", ...}",
-  "rejected": "{\"answer\": \"13.9%\", \"calculation\": \"(206588 - 181001) / 206588\", ...}"
+  "chosen":   "{"answer": "14.1%", "calculation": "(206588 - 181001) / 181001", ...}",
+  "rejected": "{"answer": "13.9%", "calculation": "(206588 - 181001) / 206588", ...}"
 }
 ```
 
