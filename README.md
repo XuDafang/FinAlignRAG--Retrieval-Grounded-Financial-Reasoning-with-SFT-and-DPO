@@ -1,2 +1,398 @@
 # FinAlignRAG: Retrieval-Grounded Financial Reasoning with SFT and DPO
 
+A rigorous ablation study measuring how much each layer of the stack — retrieval quality, supervised fine-tuning, and preference alignment — contributes to accurate numerical reasoning over financial documents.
+
+## Objective
+
+Large language models hallucinate financial numbers. This project quantifies whether the problem is better solved by:
+
+1. **Better retrieval** — surfacing the right document chunks before generation
+2. **Supervised fine-tuning (SFT)** — teaching a 7B model to produce structured, auditable JSON answers
+3. **Direct preference optimization (DPO)** — penalizing arithmetic drift, fabricated evidence, and overconfident refusals
+
+Five systems are evaluated head-to-head on identical test questions drawn from SEC filings (FinQA / ConvFinQA):
+
+| # | System | Retrieval | Model |
+|---|--------|-----------|-------|
+| 0 | `base_no_rag` | none | Qwen2.5-7B-Instruct (base) |
+| 1 | `base_simple_rag` | dense (FAISS cosine) | base |
+| 2 | `base_two_stage_rag` | dense + cross-encoder rerank | base |
+| 3 | `sft_two_stage_rag` | dense + cross-encoder rerank | base + SFT adapter |
+| 4 | `sft_dpo_two_stage_rag` | dense + cross-encoder rerank | base + DPO adapter |
+
+The marginal gain from each row isolates one factor, giving a clean ablation table.
+
+---
+
+## Architecture
+
+```
+Raw SEC Filings (JSONL)
+        │
+        ▼
+┌───────────────────┐
+│  data_pipeline.py │  chunk by 512 tokens, split by ticker (no leakage)
+└───────────────────┘
+        │
+        ▼
+ data/processed/
+  chunks.jsonl          ◄─── used to build the retrieval index
+  train.jsonl           ◄─── used to generate SFT / DPO training pairs
+  val.jsonl
+  test.jsonl
+
+        │                             ┌──────────────────────┐
+        ├─────── index_chunks() ─────►│ retrieval_engine.py  │
+        │                             │  FAISS IndexFlatIP   │
+        │                             │  + cross-encoder     │
+        │                             └──────────────────────┘
+        │                                       │ top-5 chunks
+        │                                       ▼
+        │                             ┌──────────────────────┐
+        └─────── run_sft / run_dpo ──►│   alignment.py       │
+                                      │  QLoRA SFT + DPO     │
+                                      │  (Titan X fp16)      │
+                                      └──────────────────────┘
+                                                │ adapter weights
+                                                ▼
+                                      ┌──────────────────────┐
+                                      │  rag_pipeline.py     │  ◄─ choose system
+                                      │  retrieve → prompt   │
+                                      │  → generate → JSON   │
+                                      └──────────────────────┘
+                                                │ predictions.jsonl
+                                                ▼
+                                      ┌──────────────────────┐
+                                      │  eval_harness.py     │
+                                      │  JSON validity       │
+                                      │  numerical accuracy  │
+                                      │  evidence support    │
+                                      │  refusal accuracy    │
+                                      │  retrieval recall@5  │
+                                      └──────────────────────┘
+```
+
+---
+
+## Concrete Example
+
+### Input
+
+**Question** (from FinQA / `data/train.json`):
+
+> What was the percentage change in net cash from operating activities from 2008 to 2009?
+
+**Source document excerpt** (from `JKHY/2009/page_28.pdf`):
+
+```
+Net cash from operating activities  2009: $206,588   2008: $181,001
+```
+
+**Raw document record** (what `data/raw/documents.jsonl` must contain):
+
+```json
+{
+  "ticker": "JKHY",
+  "source_doc_id": "JKHY_2009_page28",
+  "text": "Net income $103,102 $104,222 $104,681 ... Net cash from operating activities $206,588 $181,001 $174,247"
+}
+```
+
+---
+
+### Output
+
+After running the full pipeline, `rag_pipeline.py` writes one line per question to the prediction JSONL:
+
+```json
+{
+  "id": "train_000",
+  "system_name": "sft_dpo_two_stage_rag",
+  "question": "What was the percentage change in net cash from operating activities from 2008 to 2009?",
+  "ground_truth_answer": "14.1%",
+  "predicted_json": "{\"answer\": \"14.1%\", \"calculation\": \"(206588 - 181001) / 181001\", \"evidence\": \"Net cash from operating activities was $206,588 in 2009 and $181,001 in 2008\", \"confidence\": 0.95, \"insufficient_context\": false}",
+  "retrieved_chunks": [
+    {
+      "chunk_id": "JKHY_2009_page28_000",
+      "text": "Net cash from operating activities $206,588 $181,001 $174,247",
+      "ticker": "JKHY",
+      "source_doc_id": "JKHY_2009_page28",
+      "chunk_index": 0,
+      "dense_score": 0.83,
+      "rerank_score": 0.96
+    }
+  ],
+  "should_refuse": false,
+  "latency_ms": 840.2
+}
+```
+
+The `predicted_json` field is then scored by `eval_harness.py`:
+
+- **JSON validity** — all five required keys present? → `true`
+- **Numerical accuracy** — `14.1%` within 0.1% of gold `14.1%`? → `true`
+- **Evidence support** — do operands `206588` and `181001` appear in the evidence? → `true`
+- **Refusal accuracy** — `insufficient_context: false` matches `should_refuse: false`? → `true`
+- **Retrieval recall@5** — gold chunk `JKHY_2009_page28_000` in top-5? → `1.0`
+
+---
+
+## Hardware Requirements
+
+- **GPU**: NVIDIA Titan X (Pascal, sm_61) or better, ≥12 GB VRAM
+- **Precision**: `fp16` — Pascal does **not** support `bfloat16`
+- **FAISS**: GPU build required (`faiss-gpu` via conda; `faiss-cpu` fails at runtime)
+- **FlashAttention**: NOT used — requires Ampere (sm_80+)
+
+---
+
+## Installation
+
+```bash
+# 1. GPU FAISS must come from conda (PyPI faiss-gpu is Linux/CUDA only, but the
+#    retrieval engine requires faiss.StandardGpuResources which conda provides)
+conda install -c pytorch faiss-gpu
+
+# 2. Install all other dependencies
+pip install -r requirements.txt
+```
+
+---
+
+## Step-by-Step: Running the Project
+
+### Step 1 — Prepare Raw Documents
+
+The FinQA/ConvFinQA data in `data/train.json` must be converted to the
+pipeline's JSONL format (`ticker`, `source_doc_id`, `text` per line):
+
+```bash
+# Example conversion (adapt to your actual FinQA preprocessing script)
+python - <<'EOF'
+import json, pathlib
+
+records = json.loads(pathlib.Path("data/train.json").read_text())
+out = pathlib.Path("data/raw/documents.jsonl")
+out.parent.mkdir(parents=True, exist_ok=True)
+
+with out.open("w") as fh:
+    for r in records:
+        ticker = r["filename"].split("/")[0]          # e.g. "JKHY"
+        doc_id = r["filename"].replace("/", "_").replace(".pdf", "")
+        text   = " ".join(r.get("pre_text", []) + r.get("post_text", []))
+        fh.write(json.dumps({"ticker": ticker, "source_doc_id": doc_id, "text": text}) + "\n")
+print("Done:", out)
+EOF
+```
+
+### Step 2 — Data Pipeline (chunk + split by ticker)
+
+```bash
+python -m src.data_pipeline \
+    --input  data/raw/documents.jsonl \
+    --output-dir data/processed \
+    --config configs/default.yaml
+```
+
+Outputs to `data/processed/`: `chunks.jsonl`, `train.jsonl`, `val.jsonl`, `test.jsonl`.
+Tickers are never shared across splits — leakage is impossible by construction.
+
+### Step 3 — Smoke-test the Retrieval Engine
+
+```bash
+python -m src.retrieval_engine --log-level INFO
+```
+
+Expects a CUDA GPU + GPU FAISS. Prints `SMOKE TEST PASSED` on success.
+Optionally exercise save/load:
+
+```bash
+python -m src.retrieval_engine --save-dir /tmp/smoke_index
+```
+
+### Step 4 — Prepare SFT Training Data
+
+SFT training expects a JSONL where each line has
+`text` (retrieved context), `question`, and `target_json`:
+
+```json
+{
+  "ticker": "JKHY",
+  "source_doc_id": "JKHY_2009_page28",
+  "text": "<retrieved context chunks concatenated>",
+  "question": "What was the percentage change in net cash from operating activities from 2008 to 2009?",
+  "target_json": "{\"answer\": \"14.1%\", \"calculation\": \"(206588 - 181001) / 181001\", \"evidence\": \"Net cash was $206,588 in 2009 and $181,001 in 2008\", \"confidence\": 0.95, \"insufficient_context\": false}"
+}
+```
+
+Place the prepared file at `data/sft/train.jsonl`.
+
+### Step 5 — SFT Training (GPU required)
+
+```bash
+# Full training (1000 steps, ~several hours on Titan X)
+python -m src.alignment \
+    --mode   sft \
+    --config configs/default.yaml \
+    --data   data/sft/train.jsonl
+
+# Quick smoke run (5 steps — verifies the pipeline without waiting)
+python -m src.alignment \
+    --mode   sft \
+    --config configs/default.yaml \
+    --data   data/sft/train.jsonl \
+    --debug
+```
+
+Adapter saved to `outputs/sft_adapter/`.
+
+### Step 6 — Prepare DPO Training Data
+
+DPO training expects `text` (context), `question`, `chosen` (correct answer JSON),
+and `rejected` (flawed answer JSON — arithmetic error, fabricated evidence, etc.):
+
+```json
+{
+  "text": "<retrieved context>",
+  "question": "What was the percentage change in net cash from operating activities?",
+  "chosen":   "{\"answer\": \"14.1%\", \"calculation\": \"(206588 - 181001) / 181001\", ...}",
+  "rejected": "{\"answer\": \"13.9%\", \"calculation\": \"(206588 - 181001) / 206588\", ...}"
+}
+```
+
+Place the prepared file at `data/dpo/train.jsonl`.
+
+### Step 7 — DPO Training (GPU required)
+
+```bash
+# Full training
+python -m src.alignment \
+    --mode        dpo \
+    --config      configs/default.yaml \
+    --data        data/dpo/train.jsonl \
+    --sft_adapter outputs/sft_adapter
+
+# Quick smoke run
+python -m src.alignment \
+    --mode        dpo \
+    --config      configs/default.yaml \
+    --data        data/dpo/train.jsonl \
+    --sft_adapter outputs/sft_adapter \
+    --debug
+```
+
+Adapter saved to `outputs/dpo_adapter/`.
+
+### Step 8 — Run Inference (all 5 ablation systems)
+
+Build the retrieval index once from Step 2 chunks, then reuse it across runs:
+
+```bash
+# System 0: base model only (no retrieval)
+python -m src.rag_pipeline \
+    --system    base_no_rag \
+    --config    configs/default.yaml \
+    --questions data/processed/test.jsonl \
+    --output    outputs/preds_0_base_no_rag.jsonl
+
+# System 1: dense-only retrieval (builds index, saves for reuse)
+python -m src.rag_pipeline \
+    --system     base_simple_rag \
+    --config     configs/default.yaml \
+    --chunks     data/processed/chunks.jsonl \
+    --questions  data/processed/test.jsonl \
+    --output     outputs/preds_1_base_simple_rag.jsonl \
+    --save-index outputs/faiss_index
+
+# System 2: two-stage RAG (loads saved index)
+python -m src.rag_pipeline \
+    --system    base_two_stage_rag \
+    --config    configs/default.yaml \
+    --index-dir outputs/faiss_index \
+    --questions data/processed/test.jsonl \
+    --output    outputs/preds_2_base_two_stage_rag.jsonl
+
+# System 3: SFT model + two-stage RAG
+python -m src.rag_pipeline \
+    --system    sft_two_stage_rag \
+    --config    configs/default.yaml \
+    --index-dir outputs/faiss_index \
+    --questions data/processed/test.jsonl \
+    --output    outputs/preds_3_sft_two_stage_rag.jsonl \
+    --adapter   outputs/sft_adapter
+
+# System 4: SFT + DPO model + two-stage RAG
+python -m src.rag_pipeline \
+    --system    sft_dpo_two_stage_rag \
+    --config    configs/default.yaml \
+    --index-dir outputs/faiss_index \
+    --questions data/processed/test.jsonl \
+    --output    outputs/preds_4_sft_dpo_two_stage_rag.jsonl \
+    --adapter   outputs/dpo_adapter
+```
+
+### Step 9 — Evaluate All Systems
+
+```bash
+for i in 0 1 2 3 4; do
+  python -m src.eval_harness \
+      --predictions outputs/preds_${i}_*.jsonl \
+      --report      reports/metrics_system${i}.json
+done
+```
+
+Or score one file at a time:
+
+```bash
+python -m src.eval_harness \
+    --predictions outputs/preds_4_sft_dpo_two_stage_rag.jsonl \
+    --report      reports/metrics_sft_dpo.json
+```
+
+The report prints a summary table and writes `reports/ablation_results.md`.
+
+### Step 10 — Run Tests
+
+```bash
+pytest
+```
+
+---
+
+## Expected Ablation Results
+
+*(Fill in after running all five systems.)*
+
+| System | Numerical Accuracy | JSON Validity | Evidence Support | Refusal Accuracy | Retrieval Recall@5 | Latency/query |
+|---|---|---|---|---|---|---|
+| Base model only | — | — | — | — | N/A | — |
+| Base + simple RAG | — | — | — | — | — | — |
+| Base + two-stage RAG | — | — | — | — | — | — |
+| SFT + two-stage RAG | — | — | — | — | — | — |
+| SFT + DPO + two-stage RAG | — | — | — | — | — | — |
+
+---
+
+## Repository Layout
+
+```
+configs/
+  default.yaml          single source of truth for all hyperparameters
+data/
+  raw/                  input: one JSONL per corpus (ticker, source_doc_id, text)
+  processed/            output of data_pipeline: chunks + train/val/test splits
+  sft/                  SFT training pairs (text, question, target_json)
+  dpo/                  DPO training pairs (text, question, chosen, rejected)
+  train.json            raw FinQA training set (needs conversion → data/raw/)
+  dev.json              raw FinQA dev set
+outputs/
+  sft_adapter/          QLoRA SFT weights (saved by alignment.py)
+  dpo_adapter/          QLoRA DPO weights (saved by alignment.py)
+reports/                evaluation reports (written by eval_harness.py)
+src/
+  data_pipeline.py      Step 1 — ingestion, chunking, ticker-split
+  retrieval_engine.py   Step 2 — GPU FAISS dense + cross-encoder rerank
+  eval_harness.py       Step 3 — deterministic scoring (JSON, math, evidence)
+  alignment.py          Step 4 — QLoRA SFT and DPO training
+  rag_pipeline.py       Step 5 — end-to-end inference for all 5 ablation systems
+```
