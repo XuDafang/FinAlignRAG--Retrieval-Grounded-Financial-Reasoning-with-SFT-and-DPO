@@ -12,13 +12,19 @@ Large language models hallucinate financial numbers. This project quantifies whe
 
 Five systems are evaluated head-to-head on identical test questions drawn from SEC filings (FinQA / ConvFinQA):
 
-| # | System | Retrieval | Model |
-|---|--------|-----------|-------|
+| # | System | Retrieval | Model weights |
+|---|--------|-----------|---------------|
 | 0 | `base_no_rag` | none | Qwen2.5-7B-Instruct (base) |
 | 1 | `base_simple_rag` | dense (FAISS cosine) | base |
 | 2 | `base_two_stage_rag` | dense + cross-encoder rerank | base |
 | 3 | `sft_two_stage_rag` | dense + cross-encoder rerank | base + SFT adapter |
-| 4 | `sft_dpo_two_stage_rag` | dense + cross-encoder rerank | base + DPO adapter |
+| 4 | `sft_dpo_two_stage_rag` | dense + cross-encoder rerank | base + SFT→DPO adapter |
+
+> **Note on system 4:** The DPO adapter is not applied to the raw base model. DPO training
+> (`alignment.py run_dpo`) initializes from the already-trained SFT adapter and continues
+> preference-optimizing those weights. The saved `outputs/dpo_adapter/` therefore encodes
+> **both** SFT and DPO — it is the SFT adapter further tuned by DPO. Loading it on top of
+> the base model gives a model that has been through both training stages.
 
 The marginal gain from each row isolates one factor, giving a clean ablation table.
 
