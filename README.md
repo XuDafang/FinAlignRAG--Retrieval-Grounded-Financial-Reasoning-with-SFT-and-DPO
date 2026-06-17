@@ -145,10 +145,28 @@ The `predicted_json` field is then scored by `eval_harness.py`:
 
 ## Hardware Requirements
 
-- **GPU**: NVIDIA Titan X (Pascal, sm_61) or better, ≥12 GB VRAM
+- **GPUs**: 4 × NVIDIA Titan X (Pascal, sm_61), 12 GB VRAM each (48 GB total)
 - **Precision**: `fp16` — Pascal does **not** support `bfloat16`
 - **FAISS**: GPU build required (`faiss-gpu` via conda; `faiss-cpu` fails at runtime)
 - **FlashAttention**: NOT used — requires Ampere (sm_80+)
+
+**Training strategy — DeepSpeed ZeRO-3 + fp16 (via `DS_ALLOW_DEPRECATED_FP16=1`):**
+All four GPUs are used during SFT and DPO training via DeepSpeed ZeRO stage 3.
+Pascal (sm_61) is labelled "deprecated fp16" by DeepSpeed (which gates fp16 on
+Volta sm_70+) but the GPU computes fp16 correctly. Setting `DS_ALLOW_DEPRECATED_FP16=1`
+unblocks the check. ZeRO-3 shards fp16 weights: 7B × 2 bytes = 14 GB ÷ 4 GPUs = 3.5 GB/GPU.
+`HfDeepSpeedConfig` is created before `from_pretrained` so Transformers uses
+`GatheredParameters` (not naive `load_state_dict`) for ZeRO-3 compatible loading.
+Training launches as:
+```bash
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
+torchrun --nproc_per_node=4 -m src.alignment --mode sft ...
+```
+4-bit quantization is still used in `rag_pipeline.py` for single-GPU inference.
+
+**Inference strategy — single GPU with 4-bit quantization:**
+`rag_pipeline.py` loads the model with 4-bit NF4 quantization (bitsandbytes)
+on a single GPU, as inference does not benefit from ZeRO-3 parameter sharding.
 
 ---
 
@@ -157,9 +175,12 @@ The `predicted_json` field is then scored by `eval_harness.py`:
 ```bash
 # 1. GPU FAISS must come from conda (PyPI faiss-gpu is Linux/CUDA only, but the
 #    retrieval engine requires faiss.StandardGpuResources which conda provides)
-conda install -c pytorch faiss-gpu
+conda install -c pytorch -c nvidia faiss-gpu
 
-# 2. Install all other dependencies
+# 2. PyTorch with CUDA (match your driver version — check with nvidia-smi)
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# 3. Install all other dependencies (includes deepspeed for ZeRO-3 training)
 pip install -r requirements.txt
 ```
 
@@ -233,21 +254,31 @@ SFT training expects a JSONL where each line has
 
 Place the prepared file at `data/sft/train.jsonl`.
 
-### Step 5 — SFT Training (GPU required)
+### Step 5 — SFT Training (all 4 GPUs via DeepSpeed ZeRO-3)
+
+Training uses `torchrun` to launch one process per GPU. DeepSpeed ZeRO-3 shards
+the 7B fp16 model across all 4 GPUs, eliminating the need for 4-bit quantization
+during training and increasing throughput significantly.
 
 ```bash
-# Full training (1000 steps, ~several hours on Titan X)
-python -m src.alignment \
-    --mode   sft \
-    --config configs/default.yaml \
-    --data   data/sft/train.jsonl
+# Two environment variables are required for multi-GPU training on Pascal:
+#   DS_ALLOW_DEPRECATED_FP16=1  — Pascal fp16 is "deprecated" in DeepSpeed but works fine
+#   PYTORCH_CUDA_ALLOC_CONF=... — reduces fragmentation from ZeRO-3 all-gather buffers
 
 # Quick smoke run (5 steps — verifies the pipeline without waiting)
-python -m src.alignment \
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
+torchrun --nproc_per_node=4 -m src.alignment \
     --mode   sft \
     --config configs/default.yaml \
     --data   data/sft/train.jsonl \
     --debug
+
+# Full training (1000 steps)
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
+torchrun --nproc_per_node=4 -m src.alignment \
+    --mode   sft \
+    --config configs/default.yaml \
+    --data   data/sft/train.jsonl
 ```
 
 Adapter saved to `outputs/sft_adapter/`.
@@ -268,23 +299,25 @@ and `rejected` (flawed answer JSON — arithmetic error, fabricated evidence, et
 
 Place the prepared file at `data/dpo/train.jsonl`.
 
-### Step 7 — DPO Training (GPU required)
+### Step 7 — DPO Training (all 4 GPUs via DeepSpeed ZeRO-3)
 
 ```bash
-# Full training
-python -m src.alignment \
-    --mode        dpo \
-    --config      configs/default.yaml \
-    --data        data/dpo/train.jsonl \
-    --sft_adapter outputs/sft_adapter
-
 # Quick smoke run
-python -m src.alignment \
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
+torchrun --nproc_per_node=4 -m src.alignment \
     --mode        dpo \
     --config      configs/default.yaml \
     --data        data/dpo/train.jsonl \
     --sft_adapter outputs/sft_adapter \
     --debug
+
+# Full training
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
+torchrun --nproc_per_node=4 -m src.alignment \
+    --mode        dpo \
+    --config      configs/default.yaml \
+    --data        data/dpo/train.jsonl \
+    --sft_adapter outputs/sft_adapter
 ```
 
 Adapter saved to `outputs/dpo_adapter/`.

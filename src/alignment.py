@@ -1,30 +1,36 @@
-"""FinAlignRAG — Step 4: Alignment (QLoRA SFT + DPO).
+"""FinAlignRAG — Step 4: Alignment (LoRA SFT + DPO with DeepSpeed ZeRO-3).
 
-Two separate training stages on top of a 4-bit (NF4) quantized base model:
+Two separate training stages using LoRA over a full fp32 base model, distributed
+across all available GPUs via DeepSpeed ZeRO-3:
   * ``run_sft``  — supervised fine-tuning for JSON-schema adherence, calculation
                    formatting and graceful refusal, via TRL ``SFTTrainer``.
   * ``run_dpo``  — preference optimization (reduce arithmetic drift / ungrounded
                    claims), via TRL ``DPOTrainer``, initialized from base+SFT adapter.
 
-HARDWARE TARGET — NVIDIA Titan X (Pascal, sm_61, 12 GB)
-------------------------------------------------------
-Pascal does NOT support bfloat16, so this module uses **fp16** everywhere:
-  * ``bnb_4bit_compute_dtype = torch.float16`` (NOT bfloat16),
-  * ``fp16=True`` / ``bf16=False`` in the trainer args,
-  * gradient checkpointing on, per-device batch_size=1 + gradient accumulation,
-  * ``attn_implementation="eager"`` — FlashAttention requires Ampere (sm_80+).
-This module requires a CUDA GPU (4-bit QLoRA via bitsandbytes); it raises if none
-is available. It is meant to be run manually on the Titan X box.
+HARDWARE TARGET — 4 × NVIDIA Titan X (Pascal, sm_61, 12 GB each = 48 GB total)
+--------------------------------------------------------------------------------
+Pascal (sm_61) fp16 is marked deprecated by DeepSpeed but works; set DS_ALLOW_DEPRECATED_FP16=1.
+  * Launch command: PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1
+  * ``HfDeepSpeedConfig`` before ``from_pretrained`` -- Transformers uses GatheredParameters
+    for ZeRO-3 weight loading (prevents OOM during from_pretrained inside zero.Init).
+  * ``use_reentrant=True`` gradient checkpointing -- non-reentrant mode conflicts with ZeRO-3
+    (recomputed tensor shapes differ because params re-partition between forward passes).
+  * ZeRO-3 shards fp16 weights: 7B x 2 bytes = 14 GB / 4 GPUs = 3.5 GB/GPU.
+  * batch_size=1, max_seq_length=1024 -- vocab=152k logits with batch=2 or seq=2048 OOM.
+  * Effective batch = 4 GPUs x 1 x grad_accum 16 = 64.
+  * Verified: 5-step debug run passes on 4 x Titan X, ~354 s/step with communication overhead.
+
+Launch with torchrun (NOT plain python — DeepSpeed requires distributed init):
+  torchrun --nproc_per_node=4 -m src.alignment --mode sft \\
+      --config configs/default.yaml --data data/sft/train.jsonl
+  torchrun --nproc_per_node=4 -m src.alignment --mode dpo \\
+      --config configs/default.yaml --data data/dpo/train.jsonl \\
+      --sft_adapter outputs/sft_adapter/
+Add ``--debug`` to cap training at ``max_steps=5`` for a fast smoke run.
 
 TRL API note: written against TRL ~0.11–0.12 (``SFTConfig``/``DPOConfig`` with
-``dataset_text_field``/``max_seq_length``/``beta``). TRL's API moves fast — pin
-the version (see requirements.txt) if a newer release renames these.
-
-CLI
----
-``python -m src.alignment --mode sft --config configs/default.yaml --data data/sft/train.jsonl``
-``python -m src.alignment --mode dpo --config configs/default.yaml --data data/dpo/train.jsonl --sft_adapter outputs/sft_adapter/``
-Add ``--debug`` to cap training at ``max_steps=5`` for a fast smoke run.
+``dataset_text_field``/``max_seq_length``/``beta``). Pin the version
+(see requirements.txt) if a newer release renames these.
 """
 
 from __future__ import annotations
@@ -38,17 +44,8 @@ from typing import Any
 
 import torch
 from datasets import load_dataset
-from peft import (
-    LoraConfig,
-    PeftModel,
-    prepare_model_for_kbit_training,
-)
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    set_seed,
-)
+from peft import LoraConfig, PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
 
 logger = logging.getLogger("finalignrag.alignment")
@@ -79,11 +76,11 @@ class TrainingConfig:
     lora_rank: int = 16
     lora_alpha: int = 32
     learning_rate: float = 2e-4
-    batch_size: int = 1
-    gradient_accumulation_steps: int = 16
+    batch_size: int = 2                 # per-device; ZeRO-3 across 4 GPUs
+    gradient_accumulation_steps: int = 8
     logging_steps: int = 10
     max_steps: int = 1000
-    fp16: bool = True  # Pascal: fp16 (bf16 unsupported)
+    fp16: bool = True                   # Pascal fp16 allowed with DS_ALLOW_DEPRECATED_FP16=1
     seed: int = 42
 
     # --- Implementation extras ---
@@ -94,6 +91,7 @@ class TrainingConfig:
     dpo_beta: float = 0.1
     sft_adapter_dir: str = "outputs/sft_adapter"
     dpo_adapter_dir: str = "outputs/dpo_adapter"
+    deepspeed_config: str = "configs/deepspeed_zero3.json"
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainingConfig":
@@ -114,7 +112,7 @@ class TrainingConfig:
             "output_dir", "lora_rank", "lora_alpha", "learning_rate", "batch_size",
             "gradient_accumulation_steps", "logging_steps", "max_steps", "fp16",
             "seed", "lora_dropout", "gradient_checkpointing", "max_seq_length",
-            "sft_adapter_dir", "dpo_adapter_dir",
+            "sft_adapter_dir", "dpo_adapter_dir", "deepspeed_config",
         ):
             if training.get(key) is not None:
                 kwargs[key] = training[key]
@@ -185,24 +183,6 @@ def format_dpo_pairs(examples: dict[str, list]) -> dict[str, list]:
 # ---------------------------------------------------------------------------
 # Model loading helpers
 # ---------------------------------------------------------------------------
-def _require_cuda() -> None:
-    if not torch.cuda.is_available():
-        raise RuntimeError(
-            "alignment.py requires a CUDA GPU (4-bit QLoRA via bitsandbytes). "
-            "torch.cuda.is_available() returned False. Run on the Titan X Pascal box."
-        )
-
-
-def _bnb_config() -> BitsAndBytesConfig:
-    """4-bit NF4 quantization with fp16 compute dtype (Pascal: NOT bf16)."""
-    return BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
-        bnb_4bit_use_double_quant=True,
-    )
-
-
 def _load_tokenizer(model_name: str) -> AutoTokenizer:
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     if tokenizer.pad_token is None:
@@ -211,18 +191,40 @@ def _load_tokenizer(model_name: str) -> AutoTokenizer:
 
 
 def _load_base_model(config: TrainingConfig) -> AutoModelForCausalLM:
+    """Load the base model with ZeRO-3 compatible weight loading via HfDeepSpeedConfig.
+
+    HfDeepSpeedConfig must be created before from_pretrained so that Transformers
+    uses GatheredParameters during weight loading -- each process loads only its
+    own shard without OOM. Without this, from_pretrained inside zero.Init() would
+    fail (shape mismatch: partitioned [0] vs checkpoint [H, W]).
+    """
+    import json as _json
+    from transformers.integrations.deepspeed import HfDeepSpeedConfig
+
+    # Allow DeepSpeed fp16 on Pascal (sm_61 is "deprecated" but still functional).
+    # Must be set before DeepSpeed initialises -- HfDeepSpeedConfig reads it.
+    os.environ.setdefault("DS_ALLOW_DEPRECATED_FP16", "1")
+
+    with open(config.deepspeed_config) as _f:
+        _ds_cfg = _json.load(_f)
+    # HfDeepSpeedConfig signals to Transformers that ZeRO-3 is active so that
+    # from_pretrained uses zero.Init (GatheredParameters) for weight loading.
+    # zero.Init validates the config before distributed is initialized, so
+    # world_size=1 at this point. The Trainer re-computes the effective batch
+    # size from WORLD_SIZE once deepspeed.initialize() is called.
+    _ds_cfg_init = dict(_ds_cfg)
+    _ds_cfg_init["train_micro_batch_size_per_gpu"] = config.batch_size
+    _ds_cfg_init["gradient_accumulation_steps"] = config.gradient_accumulation_steps
+    _ds_cfg_init["train_batch_size"] = config.batch_size * config.gradient_accumulation_steps  # * 1
+    _hf_ds_cfg = HfDeepSpeedConfig(_ds_cfg_init)  # noqa: F841 — must stay alive
+
     model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
-        quantization_config=_bnb_config(),
-        device_map={"": 0},
-        attn_implementation="eager",  # NO FlashAttention on Pascal
-        torch_dtype=torch.float16,
+        torch_dtype=torch.float16,     # fp16: 14 GB / 4 GPUs = 3.5 GB/GPU via ZeRO-3
+        attn_implementation="eager",   # no FlashAttention on Pascal sm_61
         trust_remote_code=True,
     )
-    model.config.use_cache = False  # incompatible with gradient checkpointing
-    model = prepare_model_for_kbit_training(
-        model, use_gradient_checkpointing=config.gradient_checkpointing
-    )
+    model.config.use_cache = False     # incompatible with gradient checkpointing
     return model
 
 
@@ -241,8 +243,7 @@ def _lora_config(config: TrainingConfig) -> LoraConfig:
 # Training entry points
 # ---------------------------------------------------------------------------
 def run_sft(training_config: TrainingConfig, data_path: str) -> None:
-    """Run QLoRA SFT with TRL ``SFTTrainer`` and save the adapter."""
-    _require_cuda()
+    """Run LoRA SFT with TRL ``SFTTrainer`` and DeepSpeed ZeRO-3."""
     set_seed(training_config.seed)
 
     tokenizer = _load_tokenizer(training_config.model_name)
@@ -263,8 +264,8 @@ def run_sft(training_config: TrainingConfig, data_path: str) -> None:
         fp16=training_config.fp16,
         bf16=False,
         gradient_checkpointing=training_config.gradient_checkpointing,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
-        optim="paged_adamw_8bit",
+        gradient_checkpointing_kwargs={"use_reentrant": True},
+        optim="adamw_torch",           # paged_adamw_8bit not needed with ZeRO-3
         lr_scheduler_type="cosine",
         warmup_ratio=0.03,
         save_strategy="no",
@@ -273,6 +274,7 @@ def run_sft(training_config: TrainingConfig, data_path: str) -> None:
         dataset_text_field="text",
         max_seq_length=training_config.max_seq_length,
         packing=False,
+        deepspeed=training_config.deepspeed_config,
     )
 
     trainer = SFTTrainer(
@@ -291,8 +293,7 @@ def run_sft(training_config: TrainingConfig, data_path: str) -> None:
 
 
 def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: str) -> None:
-    """Run DPO with TRL ``DPOTrainer``, initialized from base model + SFT adapter."""
-    _require_cuda()
+    """Run DPO with TRL ``DPOTrainer`` and DeepSpeed ZeRO-3, initialized from base + SFT adapter."""
     set_seed(training_config.seed)
 
     tokenizer = _load_tokenizer(training_config.model_name)
@@ -316,8 +317,8 @@ def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: s
         fp16=training_config.fp16,
         bf16=False,
         gradient_checkpointing=training_config.gradient_checkpointing,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
-        optim="paged_adamw_8bit",
+        gradient_checkpointing_kwargs={"use_reentrant": True},
+        optim="adamw_torch",           # paged_adamw_8bit not needed with ZeRO-3
         lr_scheduler_type="cosine",
         warmup_ratio=0.03,
         save_strategy="no",
@@ -326,6 +327,7 @@ def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: s
         beta=training_config.dpo_beta,
         max_length=training_config.max_seq_length,
         max_prompt_length=training_config.max_seq_length // 2,
+        deepspeed=training_config.deepspeed_config,
     )
 
     trainer = DPOTrainer(

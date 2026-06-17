@@ -44,40 +44,35 @@ retrieval:
   top_k_rerank: 5           # final chunks returned after cross-encoder rerank
 
 # -----------------------------------------------------------------------------
-# Training (Step 4) — QLoRA SFT + DPO
+# Training (Step 4) — LoRA SFT + DPO with DeepSpeed ZeRO-3
 # -----------------------------------------------------------------------------
 training:
   output_dir: outputs
   sft_adapter_dir: outputs/sft_adapter
   dpo_adapter_dir: outputs/dpo_adapter
 
-  # LoRA / QLoRA
+  # LoRA (no 4-bit quantization — ZeRO-3 shards fp16 weights across 4 GPUs)
   lora_rank: 16
   lora_alpha: 32
   lora_dropout: 0.05
   target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
 
-  # Optimization
+  # Optimization — 4 GPUs × batch 1 × grad_accum 16 = effective batch 64
+  # batch_size=1 + max_seq_length=1024: vocab=152k logits at seq=2048 OOM on 12 GB GPUs
   learning_rate: 2.0e-4
-  batch_size: 1                     # per-device; 12 GB VRAM is tight for 7B QLoRA
-  gradient_accumulation_steps: 16   # effective batch size = 16
+  batch_size: 1                      # per-device (4 GPUs active)
+  gradient_accumulation_steps: 16    # effective batch = 4 GPUs × 1 × 16 = 64
+  max_seq_length: 1024
   logging_steps: 10
   max_steps: 1000
   seed: 42
 
-  # Precision
-  # Hardware Target = NVIDIA Titan X (Pascal, sm_61). Pascal does NOT support
-  # bfloat16, so we use fp16 mixed precision per the playbook Hardware Target.
-  # Do NOT enable bf16 on this GPU.
+  # Precision — Pascal fp16 is "deprecated" in DeepSpeed but functional; set DS_ALLOW_DEPRECATED_FP16=1
   fp16: true
-  gradient_checkpointing: true   # required to fit 7B QLoRA within 12 GB VRAM
+  gradient_checkpointing: true
 
-  # 4-bit quantization (BitsAndBytes)
-  quantization:
-    load_in_4bit: true
-    bnb_4bit_quant_type: nf4
-    bnb_4bit_compute_dtype: float16   # Pascal: float16 (bfloat16 unsupported)
-    bnb_4bit_use_double_quant: true
+  # DeepSpeed ZeRO-3 — shards params + gradients + optimizer states across all GPUs
+  deepspeed_config: configs/deepspeed_zero3.json
 
   # Debug mode (playbook: max_steps=5)
   debug:
