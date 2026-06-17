@@ -1,29 +1,24 @@
-"""FinAlignRAG — Step 4: Alignment (LoRA SFT + DPO with DeepSpeed ZeRO-3).
+"""FinAlignRAG — Step 4: Alignment (QLoRA SFT + DPO, single-GPU).
 
-Two separate training stages using LoRA over a full fp32 base model, distributed
-across all available GPUs via DeepSpeed ZeRO-3:
+Two separate training stages using QLoRA (4-bit NF4 + LoRA) on a single GPU:
   * ``run_sft``  — supervised fine-tuning for JSON-schema adherence, calculation
                    formatting and graceful refusal, via TRL ``SFTTrainer``.
   * ``run_dpo``  — preference optimization (reduce arithmetic drift / ungrounded
                    claims), via TRL ``DPOTrainer``, initialized from base+SFT adapter.
 
-HARDWARE TARGET — 4 × NVIDIA Titan X (Pascal, sm_61, 12 GB each = 48 GB total)
+HARDWARE TARGET — single NVIDIA Titan X (Pascal, sm_61, 12 GB)
 --------------------------------------------------------------------------------
-Pascal (sm_61) fp16 is marked deprecated by DeepSpeed but works; set DS_ALLOW_DEPRECATED_FP16=1.
-  * Launch command: PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1
-  * ``HfDeepSpeedConfig`` before ``from_pretrained`` -- Transformers uses GatheredParameters
-    for ZeRO-3 weight loading (prevents OOM during from_pretrained inside zero.Init).
-  * ``use_reentrant=True`` gradient checkpointing -- non-reentrant mode conflicts with ZeRO-3
-    (recomputed tensor shapes differ because params re-partition between forward passes).
-  * ZeRO-3 shards fp16 weights: 7B x 2 bytes = 14 GB / 4 GPUs = 3.5 GB/GPU.
-  * batch_size=1, max_seq_length=1024 -- vocab=152k logits with batch=2 or seq=2048 OOM.
-  * Effective batch = 4 GPUs x 1 x grad_accum 16 = 64.
-  * Verified: 5-step debug run passes on 4 x Titan X, ~354 s/step with communication overhead.
+QLoRA (4-bit NF4 quantisation + LoRA adapters) on a single GPU.
+  * 4-bit base model: 7B × 0.5 bytes ≈ 3.8 GB.  LoRA adapters: ~134 MB.
+    Total GPU ≈ 4 GB, fits comfortably in 12 GB.
+  * bitsandbytes NF4 with double-quant; compute dtype fp16 (scalar fp16 on Pascal).
+  * gradient checkpointing enabled; batch=1, grad_accum=16.
+  * No DeepSpeed / distributed -- plain ``python -m src.alignment``.
 
-Launch with torchrun (NOT plain python — DeepSpeed requires distributed init):
-  torchrun --nproc_per_node=4 -m src.alignment --mode sft \\
+Launch (single-GPU):
+  CUDA_VISIBLE_DEVICES=0 python -m src.alignment --mode sft \\
       --config configs/default.yaml --data data/sft/train.jsonl
-  torchrun --nproc_per_node=4 -m src.alignment --mode dpo \\
+  CUDA_VISIBLE_DEVICES=0 python -m src.alignment --mode dpo \\
       --config configs/default.yaml --data data/dpo/train.jsonl \\
       --sft_adapter outputs/sft_adapter/
 Add ``--debug`` to cap training at ``max_steps=5`` for a fast smoke run.
@@ -76,22 +71,22 @@ class TrainingConfig:
     lora_rank: int = 16
     lora_alpha: int = 32
     learning_rate: float = 2e-4
-    batch_size: int = 2                 # per-device; ZeRO-3 across 4 GPUs
-    gradient_accumulation_steps: int = 8
+    batch_size: int = 1
+    gradient_accumulation_steps: int = 16
     logging_steps: int = 10
     max_steps: int = 1000
-    fp16: bool = True                   # Pascal fp16 allowed with DS_ALLOW_DEPRECATED_FP16=1
+    fp16: bool = True                  # QLoRA compute dtype fp16 on Pascal
     seed: int = 42
 
     # --- Implementation extras ---
     lora_dropout: float = 0.05
     target_modules: tuple[str, ...] = _TARGET_MODULES
     gradient_checkpointing: bool = True
-    max_seq_length: int = 2048
+    max_seq_length: int = 1024
     dpo_beta: float = 0.1
     sft_adapter_dir: str = "outputs/sft_adapter"
     dpo_adapter_dir: str = "outputs/dpo_adapter"
-    deepspeed_config: str = "configs/deepspeed_zero3.json"
+    deepspeed_config: str | None = None  # QLoRA uses single GPU; no DeepSpeed needed
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainingConfig":
@@ -191,36 +186,23 @@ def _load_tokenizer(model_name: str) -> AutoTokenizer:
 
 
 def _load_base_model(config: TrainingConfig) -> AutoModelForCausalLM:
-    """Load the base model with ZeRO-3 compatible weight loading via HfDeepSpeedConfig.
+    """Load the base model in 4-bit NF4 QLoRA mode (bitsandbytes).
 
-    HfDeepSpeedConfig must be created before from_pretrained so that Transformers
-    uses GatheredParameters during weight loading -- each process loads only its
-    own shard without OOM. Without this, from_pretrained inside zero.Init() would
-    fail (shape mismatch: partitioned [0] vs checkpoint [H, W]).
+    4-bit NF4 + double-quant: 7B × ~0.5 bytes ≈ 3.8 GB, fits on a single 12 GB GPU.
+    Compute dtype fp16 is used for the dequant matmul path (scalar fp16 on Pascal).
     """
-    import json as _json
-    from transformers.integrations.deepspeed import HfDeepSpeedConfig
+    from transformers import BitsAndBytesConfig
 
-    # Allow DeepSpeed fp16 on Pascal (sm_61 is "deprecated" but still functional).
-    # Must be set before DeepSpeed initialises -- HfDeepSpeedConfig reads it.
-    os.environ.setdefault("DS_ALLOW_DEPRECATED_FP16", "1")
-
-    with open(config.deepspeed_config) as _f:
-        _ds_cfg = _json.load(_f)
-    # HfDeepSpeedConfig signals to Transformers that ZeRO-3 is active so that
-    # from_pretrained uses zero.Init (GatheredParameters) for weight loading.
-    # zero.Init validates the config before distributed is initialized, so
-    # world_size=1 at this point. The Trainer re-computes the effective batch
-    # size from WORLD_SIZE once deepspeed.initialize() is called.
-    _ds_cfg_init = dict(_ds_cfg)
-    _ds_cfg_init["train_micro_batch_size_per_gpu"] = config.batch_size
-    _ds_cfg_init["gradient_accumulation_steps"] = config.gradient_accumulation_steps
-    _ds_cfg_init["train_batch_size"] = config.batch_size * config.gradient_accumulation_steps  # * 1
-    _hf_ds_cfg = HfDeepSpeedConfig(_ds_cfg_init)  # noqa: F841 — must stay alive
-
+    bnb_cfg = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.float32,  # compute in fp32 inside each 4-bit layer
+    )
     model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
-        torch_dtype=torch.float16,     # fp16: 14 GB / 4 GPUs = 3.5 GB/GPU via ZeRO-3
+        quantization_config=bnb_cfg,
+        torch_dtype=torch.float32,     # fp32 activations — QK^T on Pascal overflows fp16
         attn_implementation="eager",   # no FlashAttention on Pascal sm_61
         trust_remote_code=True,
     )
@@ -261,11 +243,11 @@ def run_sft(training_config: TrainingConfig, data_path: str) -> None:
         learning_rate=training_config.learning_rate,
         logging_steps=training_config.logging_steps,
         max_steps=training_config.max_steps,
-        fp16=training_config.fp16,
+        fp16=False,                    # fp32 activations (torch_dtype=float32); AMP would reintroduce overflow
         bf16=False,
         gradient_checkpointing=training_config.gradient_checkpointing,
-        gradient_checkpointing_kwargs={"use_reentrant": True},
-        optim="adamw_torch",           # paged_adamw_8bit not needed with ZeRO-3
+        gradient_checkpointing_kwargs={"use_reentrant": False},
+        optim="paged_adamw_8bit",      # 8-bit paged Adam for QLoRA memory efficiency
         lr_scheduler_type="cosine",
         warmup_ratio=0.03,
         save_strategy="no",
@@ -274,7 +256,6 @@ def run_sft(training_config: TrainingConfig, data_path: str) -> None:
         dataset_text_field="text",
         max_seq_length=training_config.max_seq_length,
         packing=False,
-        deepspeed=training_config.deepspeed_config,
     )
 
     trainer = SFTTrainer(
@@ -314,11 +295,11 @@ def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: s
         learning_rate=training_config.learning_rate,
         logging_steps=training_config.logging_steps,
         max_steps=training_config.max_steps,
-        fp16=training_config.fp16,
+        fp16=False,                    # fp32 activations (torch_dtype=float32); AMP would reintroduce overflow
         bf16=False,
         gradient_checkpointing=training_config.gradient_checkpointing,
-        gradient_checkpointing_kwargs={"use_reentrant": True},
-        optim="adamw_torch",           # paged_adamw_8bit not needed with ZeRO-3
+        gradient_checkpointing_kwargs={"use_reentrant": False},
+        optim="paged_adamw_8bit",      # 8-bit paged Adam for QLoRA memory efficiency
         lr_scheduler_type="cosine",
         warmup_ratio=0.03,
         save_strategy="no",
@@ -327,7 +308,6 @@ def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: s
         beta=training_config.dpo_beta,
         max_length=training_config.max_seq_length,
         max_prompt_length=training_config.max_seq_length // 2,
-        deepspeed=training_config.deepspeed_config,
     )
 
     trainer = DPOTrainer(

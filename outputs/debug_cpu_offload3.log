@@ -1,0 +1,437 @@
+DEBUG conda.gateways.logging:set_log_level(223): log_level set to 10
+DEBUG conda.gateways.subprocess:subprocess_call(97): executing>> /usr/bin/bash /tmp/tmpbhywdmfx
+W0617 03:34:37.457000 1067214 site-packages/torch/distributed/run.py:793] 
+W0617 03:34:37.457000 1067214 site-packages/torch/distributed/run.py:793] *****************************************
+W0617 03:34:37.457000 1067214 site-packages/torch/distributed/run.py:793] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0617 03:34:37.457000 1067214 site-packages/torch/distributed/run.py:793] *****************************************
+2026-06-17 03:34:54,551 | INFO | finalignrag.alignment | DEBUG mode enabled: max_steps=5
+2026-06-17 03:34:55,170 | INFO | finalignrag.alignment | DEBUG mode enabled: max_steps=5
+2026-06-17 03:34:55,997 | INFO | finalignrag.alignment | DEBUG mode enabled: max_steps=5
+2026-06-17 03:34:56,183 | INFO | finalignrag.alignment | DEBUG mode enabled: max_steps=5
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:34<01:42, 34.28s/it]Loading checkpoint shards:  25%|██▌       | 1/4 [00:34<01:42, 34.33s/it]Loading checkpoint shards:  25%|██▌       | 1/4 [00:34<01:44, 34.73s/it]Loading checkpoint shards:  25%|██▌       | 1/4 [00:34<01:44, 34.74s/it]Loading checkpoint shards:  50%|█████     | 2/4 [01:07<01:07, 33.87s/it]Loading checkpoint shards:  50%|█████     | 2/4 [01:07<01:07, 33.75s/it]Loading checkpoint shards:  50%|█████     | 2/4 [01:07<01:07, 33.81s/it]Loading checkpoint shards:  50%|█████     | 2/4 [01:08<01:07, 33.94s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [01:42<00:34, 34.33s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [01:42<00:34, 34.44s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [01:43<00:34, 34.49s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [01:43<00:34, 34.54s/it]Loading checkpoint shards: 100%|██████████| 4/4 [02:11<00:00, 31.87s/it]Loading checkpoint shards: 100%|██████████| 4/4 [02:11<00:00, 32.77s/it]
+Loading checkpoint shards: 100%|██████████| 4/4 [02:10<00:00, 31.90s/it]Loading checkpoint shards: 100%|██████████| 4/4 [02:10<00:00, 32.74s/it]
+Loading checkpoint shards: 100%|██████████| 4/4 [02:11<00:00, 31.97s/it]Loading checkpoint shards: 100%|██████████| 4/4 [02:11<00:00, 32.76s/it]
+Loading checkpoint shards: 100%|██████████| 4/4 [02:11<00:00, 31.95s/it]Loading checkpoint shards: 100%|██████████| 4/4 [02:11<00:00, 32.84s/it]
+max_steps is given, it will override any value given in num_train_epochs
+max_steps is given, it will override any value given in num_train_epochs
+max_steps is given, it will override any value given in num_train_epochs
+max_steps is given, it will override any value given in num_train_epochs
+2026-06-17 03:37:48,396 | WARNING | accelerate.accelerator | [RANK 0] Gradient accumulation steps mismatch: GradientAccumulationPlugin has 1, DeepSpeed config has 16. Using DeepSpeed's value.
+Installed CUDA version 12.6 does not match the version torch was compiled with 12.4 but since the APIs are compatible, accepting this combination
+Installed CUDA version 12.6 does not match the version torch was compiled with 12.4 but since the APIs are compatible, accepting this combination
+Installed CUDA version 12.6 does not match the version torch was compiled with 12.4 but since the APIs are compatible, accepting this combination
+Installed CUDA version 12.6 does not match the version torch was compiled with 12.4 but since the APIs are compatible, accepting this combination
+  0%|          | 0/5 [00:00<?, ?it/s][rank2]: Traceback (most recent call last):
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank2]:     return _run_code(code, main_globals, None,
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/runpy.py", line 86, in _run_code
+[rank2]:     exec(code, run_globals)
+[rank2]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 386, in <module>
+[rank2]:     raise SystemExit(main())
+[rank2]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 377, in main
+[rank2]:     run_sft(config, args.data)
+[rank2]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 283, in run_sft
+[rank2]:     trainer.train()
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 2123, in train
+[rank2]:     return inner_training_loop(
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 2481, in _inner_training_loop
+[rank2]:     tr_loss_step = self.training_step(model, inputs, num_items_in_batch)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 3579, in training_step
+[rank2]:     loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 3633, in compute_loss
+[rank2]:     outputs = model(**inputs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank2]:     return forward_call(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank2]:     ret_val = func(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/engine.py", line 2375, in forward
+[rank2]:     loss = self.module(*inputs, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank2]:     return inner()
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank2]:     result = forward_call(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/peft_model.py", line 1993, in forward
+[rank2]:     return self.base_model(
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank2]:     return inner()
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank2]:     result = forward_call(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/tuners/tuners_utils.py", line 330, in forward
+[rank2]:     return self.model.forward(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 1164, in forward
+[rank2]:     outputs = self.model(
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank2]:     return inner()
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank2]:     result = forward_call(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 883, in forward
+[rank2]:     layer_outputs = self._gradient_checkpointing_func(
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_compile.py", line 32, in inner
+[rank2]:     return disable_fn(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank2]:     return fn(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 489, in checkpoint
+[rank2]:     return CheckpointFunction.apply(function, preserve, *args)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/autograd/function.py", line 575, in apply
+[rank2]:     return super().apply(*args, **kwargs)  # type: ignore[misc]
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 264, in forward
+[rank2]:     outputs = run_function(*args)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank2]:     return inner()
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank2]:     result = forward_call(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 638, in forward
+[rank2]:     hidden_states = self.mlp(hidden_states)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank2]:     return inner()
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank2]:     result = forward_call(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 223, in forward
+[rank2]:     return self.down_proj(self.act_fn(self.gate_proj(hidden_state)) * self.up_proj(hidden_state))
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank2]:     return inner()
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank2]:     result = forward_call(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/tuners/lora/layer.py", line 969, in forward
+[rank2]:     result = result + lora_B(lora_A(dropout(x))) * scaling
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-package[rank3]: Traceback (most recent call last):
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank3]:     return _run_code(code, main_globals, None,
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/runpy.py", line 86, in _run_code
+[rank3]:     exec(code, run_globals)
+[rank3]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 386, in <module>
+[rank3]:     raise SystemExit(main())
+[rank3]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 377, in main
+[rank3]:     run_sft(config, args.data)
+[rank3]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 283, in run_sft
+[rank3]:     trainer.train()
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 2123, in train
+[rank3]:     return inner_training_loop(
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 2481, in _inner_training_loop
+[rank3]:     tr_loss_step = self.training_step(model, inputs, num_items_in_batch)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 3579, in training_step
+[rank3]:     loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 3633, in compute_loss
+[rank3]:     outputs = model(**inputs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank3]:     ret_val = func(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/engine.py", line 2375, in forward
+[rank3]:     loss = self.module(*inputs, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank3]:     return inner()
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank3]:     result = forward_call(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/peft_model.py", line 1993, in forward
+[rank3]:     return self.base_model(
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank3]:     return inner()
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank3]:     result = forward_call(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/tuners/tuners_utils.py", line 330, in forward
+[rank3]:     return self.model.forward(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 1164, in forward
+[rank3]:     outputs = self.model(
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank3]:     return inner()
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank3]:     result = forward_call(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 883, in forward
+[rank3]:     layer_outputs = self._gradient_checkpointing_func(
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_compile.py", line 32, in inner
+[rank3]:     return disable_fn(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank3]:     return fn(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 489, in checkpoint
+[rank3]:     return CheckpointFunction.apply(function, preserve, *args)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/autograd/function.py", line 575, in apply
+[rank3]:     return super().apply(*args, **kwargs)  # type: ignore[misc]
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 264, in forward
+[rank3]:     outputs = run_function(*args)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank3]:     return inner()
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank3]:     result = forward_call(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 638, in forward
+[rank3]:     hidden_states = self.mlp(hidden_states)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank3]:     return inner()
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank3]:     result = forward_call(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 223, in forward
+[rank3]:     return self.down_proj(self.act_fn(self.gate_proj(hidden_state)) * self.up_proj(hidden_state))
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank3]:     return inner()
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank3]:     result = forward_call(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/tuners/lora/layer.py", line 969, in forward
+[rank3]:     result = result + lora_B(lora_A(dropout(x))) * scaling
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank3]:     return inner()
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1779, in inner
+[rank3]:     args_result = hook(self, args)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank3]:     return fn(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/parameter_offload.py", line 323, in _pre_forward_module_hook
+[rank3]:     self.pre_sub_module_forward_function(module)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank3]:     return func(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/parameter_offload.py", line 502, in pre_sub_module_forward_function
+[rank3]:     param_coordinator.fetch_sub_module(sub_module, forward=True)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank3]:     return fn(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank3]:     ret_val = func(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank3]:     return func(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 325, in fetch_sub_module
+[rank3]:     self._fetch_sub_module_impl(current_submodule, forward, is_leaf)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 460, in _fetch_sub_module_impl
+[rank3]:     self.__all_gather_params(params_to_prefetch, forward)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank3]:     ret_val = func(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 520, in __all_gather_params
+[rank3]:     self.__all_gather_params_(nonquantized_params, forward, quantize=self.zero_quantized_weights)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 549, in __all_gather_params_
+[rank3]:     handle = param_group[0].all_gather_coalesced(param_group, quantize=quantize)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank3]:     ret_val = func(*args, **kwargs)
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1491, in all_gather_coalesced
+[rank3]:     return _all_gather_coalesced(params, world_size, rank_in_group, use_secondary_tensor, ds_process_group,
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1377, in _all_gather_coalesced
+[rank3]:     _all_gather_dtype(dtype_params[dtype], world_size, rank_in_group, ds_process_group, dtype))
+[rank3]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1245, in _all_gather_dtype
+[rank3]:     flat_tensor = torch.empty(partition_sz * world_size,
+[rank3]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.03 GiB. GPU 3 has a total capacity of 11.90 GiB of which 1.62 GiB is free. Including non-PyTorch memory, this process has 10.25 GiB memory in use. Of the allocated memory 6.60 GiB is allocated by PyTorch, and 3.42 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+s/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank2]:     return inner()
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1779, in inner
+[rank2]:     args_result = hook(self, args)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank2]:     return fn(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/parameter_offload.py", line 323, in _pre_forward_module_hook
+[rank2]:     self.pre_sub_module_forward_function(module)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank2]:     return func(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/parameter_offload.py", line 502, in pre_sub_module_forward_function
+[rank2]:     param_coordinator.fetch_sub_module(sub_module, forward=True)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank2]:     return fn(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank2]:     ret_val = func(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank2]:     return func(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 325, in fetch_sub_module
+[rank2]:     self._fetch_sub_module_impl(current_submodule, forward, is_leaf)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 460, in _fetch_sub_module_impl
+[rank2]:     self.__all_gather_params(params_to_prefetch, forward)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank2]:     ret_val = func(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 520, in __all_gather_params
+[rank2]:     self.__all_gather_params_(nonquantized_params, forward, quantize=self.zero_quantized_weights)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 549, in __all_gather_params_
+[rank2]:     handle = param_group[0].all_gather_coalesced(param_group, quantize=quantize)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank2]:     ret_val = func(*args, **kwargs)
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1491, in all_gather_coalesced
+[rank2]:     return _all_gather_coalesced(params, world_size, rank_in_group, use_secondary_tensor, ds_process_group,
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1377, in _all_gather_coalesced
+[rank2]:     _all_gather_dtype(dtype_params[dtype], world_size, rank_in_group, ds_process_group, dtype))
+[rank2]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1245, in _all_gather_dtype
+[rank2]:     flat_tensor = torch.empty(partition_sz * world_size,
+[rank2]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.03 GiB. GPU 2 has a total capacity of 11.90 GiB of which 1.74 GiB is free. Including non-PyTorch memory, this process has 10.13 GiB memory in use. Of the allocated memory 6.52 GiB is allocated by PyTorch, and 3.38 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank1]:     return _run_code(code, main_globals, None,
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/runpy.py", line 86, in _run_code
+[rank1]:     exec(code, run_globals)
+[rank1]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 386, in <module>
+[rank1]:     raise SystemExit(main())
+[rank1]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 377, in main
+[rank1]:     run_sft(config, args.data)
+[rank1]:   File "/home/shuai/FinAlignRAG--Retrieval-Grounded-Financial-Reasoning-with-SFT-and-DPO/src/alignment.py", line 283, in run_sft
+[rank1]:     trainer.train()
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 2123, in train
+[rank1]:     return inner_training_loop(
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 2481, in _inner_training_loop
+[rank1]:     tr_loss_step = self.training_step(model, inputs, num_items_in_batch)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 3579, in training_step
+[rank1]:     loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/trainer.py", line 3633, in compute_loss
+[rank1]:     outputs = model(**inputs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank1]:     ret_val = func(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/engine.py", line 2375, in forward
+[rank1]:     loss = self.module(*inputs, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank1]:     return inner()
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank1]:     result = forward_call(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/peft_model.py", line 1993, in forward
+[rank1]:     return self.base_model(
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank1]:     return inner()
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank1]:     result = forward_call(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/tuners/tuners_utils.py", line 330, in forward
+[rank1]:     return self.model.forward(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 1164, in forward
+[rank1]:     outputs = self.model(
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank1]:     return inner()
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank1]:     result = forward_call(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 883, in forward
+[rank1]:     layer_outputs = self._gradient_checkpointing_func(
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_compile.py", line 32, in inner
+[rank1]:     return disable_fn(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank1]:     return fn(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 489, in checkpoint
+[rank1]:     return CheckpointFunction.apply(function, preserve, *args)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/autograd/function.py", line 575, in apply
+[rank1]:     return super().apply(*args, **kwargs)  # type: ignore[misc]
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 264, in forward
+[rank1]:     outputs = run_function(*args)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank1]:     return inner()
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank1]:     result = forward_call(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 638, in forward
+[rank1]:     hidden_states = self.mlp(hidden_states)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank1]:     return inner()
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank1]:     result = forward_call(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 223, in forward
+[rank1]:     return self.down_proj(self.act_fn(self.gate_proj(hidden_state)) * self.up_proj(hidden_state))
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank1]:     return inner()
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+[rank1]:     result = forward_call(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/peft/tuners/lora/layer.py", line 969, in forward
+[rank1]:     result = result + lora_B(lora_A(dropout(x))) * scaling
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+[rank1]:     return inner()
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1779, in inner
+[rank1]:     args_result = hook(self, args)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank1]:     return fn(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/parameter_offload.py", line 323, in _pre_forward_module_hook
+[rank1]:     self.pre_sub_module_forward_function(module)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank1]:     return func(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/parameter_offload.py", line 502, in pre_sub_module_forward_function
+[rank1]:     param_coordinator.fetch_sub_module(sub_module, forward=True)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
+[rank1]:     return fn(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank1]:     ret_val = func(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank1]:     return func(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 325, in fetch_sub_module
+[rank1]:     self._fetch_sub_module_impl(current_submodule, forward, is_leaf)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 460, in _fetch_sub_module_impl
+[rank1]:     self.__all_gather_params(params_to_prefetch, forward)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank1]:     ret_val = func(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 520, in __all_gather_params
+[rank1]:     self.__all_gather_params_(nonquantized_params, forward, quantize=self.zero_quantized_weights)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partitioned_param_coordinator.py", line 549, in __all_gather_params_
+[rank1]:     handle = param_group[0].all_gather_coalesced(param_group, quantize=quantize)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/utils/nvtx.py", line 33, in wrapped_fn
+[rank1]:     ret_val = func(*args, **kwargs)
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1491, in all_gather_coalesced
+[rank1]:     return _all_gather_coalesced(params, world_size, rank_in_group, use_secondary_tensor, ds_process_group,
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1377, in _all_gather_coalesced
+[rank1]:     _all_gather_dtype(dtype_params[dtype], world_size, rank_in_group, ds_process_group, dtype))
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1262, in _all_gather_dtype
+[rank1]:     [p.ds_tensor.to(get_accelerator().current_device_name()).to(allgather_dtype) for p in params],
+[rank1]:   File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/deepspeed/runtime/zero/partition_parameters.py", line 1262, in <listcomp>
+[rank1]:     [p.ds_tensor.to(get_accelerator().current_device_name()).to(allgather_dtype) for p in params],
+[rank1]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 520.00 MiB. GPU 1 has a total capacity of 11.90 GiB of which 454.94 MiB is free. Including non-PyTorch memory, this process has 11.42 GiB memory in use. Of the allocated memory 8.58 GiB is allocated by PyTorch, and 2.62 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+W0617 03:41:24.904000 1067214 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1067286 closing signal SIGTERM
+W0617 03:41:24.905000 1067214 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1067288 closing signal SIGTERM
+W0617 03:41:24.906000 1067214 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1067289 closing signal SIGTERM
+E0617 03:41:36.014000 1067214 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 1 (pid: 1067287) of binary: /home/shuai/miniconda3/envs/myenv/bin/python3.10
+Traceback (most recent call last):
+  File "/home/shuai/miniconda3/envs/myenv/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+  File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/distributed/run.py", line 919, in main
+    run(args)
+  File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/distributed/run.py", line 910, in run
+    elastic_launch(
+  File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+src.alignment FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-06-17_03:41:24
+  host      : pensees
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 1067287)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+ERROR conda.cli.main_run:execute(125): `conda run torchrun --nproc_per_node=4 -m src.alignment --mode sft --config configs/default.yaml --data data/sft/train.jsonl --debug` failed. (See above for error)
