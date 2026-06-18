@@ -9,9 +9,7 @@ venv/
 env/
 
 # ML / training artifacts
-outputs/sft_adapter/*
 outputs/dpo_adapter/*
-!outputs/sft_adapter/.gitkeep
 !outputs/dpo_adapter/.gitkeep
 *.bin
 *.safetensors
@@ -19,6 +17,9 @@ outputs/dpo_adapter/*
 *.pth
 *.ckpt
 *.msgpack
+# SFT adapter tracked via Git LFS — un-ignore files in that directory
+!outputs/sft_adapter/adapter_model.safetensors
+!outputs/sft_adapter/training_args.bin
 
 # Raw datasets — never track / push / clone .json data files
 # (FinQA / ConvFinQA / EDGAR dumps live in data/*.json and are large).
@@ -26,6 +27,7 @@ outputs/dpo_adapter/*
 # NOT matched and remains trackable. To force-keep a specific json, add an
 # explicit exception below, e.g.  !configs/schema.json
 *.json
+!outputs/sft_adapter/*.json
 
 # FAISS indexes / processed artifacts
 *.faiss
