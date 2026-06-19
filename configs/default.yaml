@@ -81,6 +81,7 @@ training:
   # DPO-specific
   dpo:
     beta: 0.1
+    max_steps: 400        # DPO on top of converged SFT needs far fewer steps
 
 # -----------------------------------------------------------------------------
 # Evaluation harness (Step 3)

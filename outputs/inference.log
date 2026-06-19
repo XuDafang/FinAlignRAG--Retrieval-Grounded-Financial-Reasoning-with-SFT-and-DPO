@@ -1,0 +1,13 @@
+2026-06-19 16:20:54,000 | INFO | run_inference | ============================================================
+2026-06-19 16:20:54,000 | INFO | run_inference | Running system: base_no_rag
+2026-06-19 16:20:54,000 | INFO | run_inference | ============================================================
+2026-06-19 16:20:54,024 | INFO | finalignrag.rag_pipeline | Loading tokenizer: Qwen/Qwen2.5-7B-Instruct
+2026-06-19 16:20:54,422 | INFO | finalignrag.rag_pipeline | Loading model [base_no_rag] adapter=None
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:07<00:21,  7.17s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:13<00:13,  6.95s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:20<00:06,  6.86s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.57s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.71s/it]
+2026-06-19 16:21:23,901 | INFO | run_inference | No retrieval for base_no_rag
+/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:590: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
+  warnings.warn(
+/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:595: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
+  warnings.warn(
+/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
+  warnings.warn(

@@ -84,6 +84,7 @@ class TrainingConfig:
     gradient_checkpointing: bool = True
     max_seq_length: int = 1024
     dpo_beta: float = 0.1
+    dpo_max_steps: int = 400             # fewer steps than SFT; DPO over-trains quickly
     sft_adapter_dir: str = "outputs/sft_adapter"
     dpo_adapter_dir: str = "outputs/dpo_adapter"
     deepspeed_config: str | None = None  # QLoRA uses single GPU; no DeepSpeed needed
@@ -115,6 +116,8 @@ class TrainingConfig:
             kwargs["target_modules"] = tuple(training["target_modules"])
         if dpo.get("beta") is not None:
             kwargs["dpo_beta"] = dpo["beta"]
+        if dpo.get("max_steps") is not None:
+            kwargs["dpo_max_steps"] = dpo["max_steps"]
         if "seed" not in kwargs and cfg.get("project", {}).get("seed") is not None:
             kwargs["seed"] = cfg["project"]["seed"]
         # learning_rate may parse as str from YAML scientific notation in edge cases
@@ -294,7 +297,7 @@ def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: s
         gradient_accumulation_steps=training_config.gradient_accumulation_steps,
         learning_rate=training_config.learning_rate,
         logging_steps=training_config.logging_steps,
-        max_steps=training_config.max_steps,
+        max_steps=training_config.dpo_max_steps,
         fp16=False,                    # fp32 activations (torch_dtype=float32); AMP would reintroduce overflow
         bf16=False,
         gradient_checkpointing=training_config.gradient_checkpointing,
@@ -306,8 +309,9 @@ def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: s
         report_to="none",
         seed=training_config.seed,
         beta=training_config.dpo_beta,
-        max_length=training_config.max_seq_length,
-        max_prompt_length=training_config.max_seq_length // 2,
+        max_length=512,                # DPO inputs are concat(chosen, rejected); cap to reduce activation size
+        max_prompt_length=256,
+        precompute_ref_log_probs=True, # cache ref logprobs upfront so training only holds the policy model
     )
 
     trainer = DPOTrainer(
@@ -355,7 +359,8 @@ def main(argv: list[str] | None = None) -> int:
     config = TrainingConfig.from_yaml(args.config)
     if args.debug:
         config.max_steps = 5
-        logger.info("DEBUG mode enabled: max_steps=5")
+        config.dpo_max_steps = 5
+        logger.info("DEBUG mode enabled: max_steps=5, dpo_max_steps=5")
 
     if args.mode == "sft":
         run_sft(config, args.data)

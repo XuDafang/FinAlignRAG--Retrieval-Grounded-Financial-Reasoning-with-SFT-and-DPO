@@ -130,11 +130,11 @@ def _require_cuda() -> None:
 
 
 def _bnb_config() -> BitsAndBytesConfig:
-    """4-bit NF4 with fp16 compute dtype (Pascal: NOT bf16)."""
+    """4-bit NF4 with fp32 compute dtype — must match alignment.py to avoid QK^T overflow."""
     return BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_compute_dtype=torch.float32,
         bnb_4bit_use_double_quant=True,
     )
 
@@ -161,7 +161,7 @@ def _load_model(
         quantization_config=_bnb_config(),
         device_map={"": 0},
         attn_implementation="eager",   # no FlashAttention on Pascal sm_61
-        torch_dtype=torch.float16,
+        torch_dtype=torch.float32,     # fp32 activations — QK^T overflows fp16 on Pascal
         trust_remote_code=True,
     )
     model.config.use_cache = True      # enabled for inference (unlike training)
