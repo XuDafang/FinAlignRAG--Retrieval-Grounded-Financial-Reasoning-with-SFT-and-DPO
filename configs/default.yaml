@@ -63,6 +63,7 @@ training:
   batch_size: 1
   gradient_accumulation_steps: 16
   max_seq_length: 1024
+  inference_max_seq_length: 2048   # longer budget for RAG prompts with retrieved chunks
   logging_steps: 10
   max_steps: 1000
   seed: 42

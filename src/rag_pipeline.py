@@ -242,8 +242,13 @@ class RAGPipeline:
         retrieval_cfg = config.get("retrieval", {})
         self._top_k_dense: int = int(retrieval_cfg.get("top_k_dense", 15))
         self._top_k_rerank: int = int(retrieval_cfg.get("top_k_rerank", 5))
+        training_cfg = config.get("training", {}) or {}
+        # Use inference_max_seq_length (larger) so RAG prompts with retrieved chunks fit.
+        # Falls back to max_seq_length, then 2048.
         self._max_seq_length: int = int(
-            (config.get("training", {}) or {}).get("max_seq_length", 2048)
+            training_cfg.get("inference_max_seq_length")
+            or training_cfg.get("max_seq_length")
+            or 2048
         )
 
         models_cfg = config.get("models", {})
@@ -350,10 +355,26 @@ class RAGPipeline:
     # ------------------------------------------------------------------ #
     # Prompt construction
     # ------------------------------------------------------------------ #
-    @staticmethod
-    def _build_context(chunks: list[dict[str, Any]]) -> str:
-        """Join retrieved chunk texts with a visual separator."""
-        return "\n\n---\n\n".join(c["text"] for c in chunks)
+    def _build_context(self, chunks: list[dict[str, Any]], question: str, max_new_tokens: int = 512) -> str:
+        """Join retrieved chunk texts, trimming chunks that would overflow the token budget.
+
+        Trims from the END of the chunk list (lowest-ranked chunks first) so that
+        the question and assistant marker are always preserved in the final prompt.
+        The prompt overhead (system + user wrapper + question) is ~200 tokens;
+        budget = max_seq_length - max_new_tokens - 200 tokens for context.
+        """
+        budget_tokens = self._max_seq_length - max_new_tokens - 200
+        sep = "\n\n---\n\n"
+        kept: list[str] = []
+        used = 0
+        for chunk in chunks:
+            # Rough token estimate: 1 token ≈ 4 chars for English financial text
+            chunk_tokens = len(chunk["text"]) // 4
+            if used + chunk_tokens > budget_tokens and kept:
+                break
+            kept.append(chunk["text"])
+            used += chunk_tokens
+        return sep.join(kept)
 
     # ------------------------------------------------------------------ #
     # Inference
@@ -397,7 +418,7 @@ class RAGPipeline:
         t0 = time.perf_counter()
 
         chunks = self._retrieve(question)
-        context = self._build_context(chunks) if chunks else ""
+        context = self._build_context(chunks, question) if chunks else ""
         prompt = _build_prompt(context, question)
         raw_output = self._generate(prompt)
         predicted_json = _extract_json_str(raw_output)
