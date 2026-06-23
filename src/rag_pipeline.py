@@ -355,7 +355,7 @@ class RAGPipeline:
     # ------------------------------------------------------------------ #
     # Prompt construction
     # ------------------------------------------------------------------ #
-    def _build_context(self, chunks: list[dict[str, Any]], question: str, max_new_tokens: int = 512) -> str:
+    def _build_context(self, chunks: list[dict[str, Any]], question: str, max_new_tokens: int = 768) -> str:
         """Join retrieved chunk texts, trimming chunks that would overflow the token budget.
 
         Trims from the END of the chunk list (lowest-ranked chunks first) so that
@@ -379,7 +379,7 @@ class RAGPipeline:
     # ------------------------------------------------------------------ #
     # Inference
     # ------------------------------------------------------------------ #
-    def _generate(self, prompt: str, max_new_tokens: int = 512) -> str:
+    def _generate(self, prompt: str, max_new_tokens: int = 768) -> str:
         """Tokenize ``prompt``, generate with greedy decoding, decode new tokens."""
         inputs = self.tokenizer(
             prompt,

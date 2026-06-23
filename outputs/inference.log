@@ -270,3 +270,36 @@
   warnings.warn(
 /home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
   warnings.warn(
+2026-06-20 15:46:14,876 | INFO | finalignrag.rag_pipeline | Processed 10 / 300
+2026-06-20 15:54:56,733 | INFO | finalignrag.rag_pipeline | Processed 20 / 300
+2026-06-20 16:02:36,432 | INFO | finalignrag.rag_pipeline | Processed 30 / 300
+2026-06-20 16:12:16,633 | INFO | finalignrag.rag_pipeline | Processed 40 / 300
+2026-06-20 16:21:00,842 | INFO | finalignrag.rag_pipeline | Processed 50 / 300
+2026-06-20 16:29:53,305 | INFO | finalignrag.rag_pipeline | Processed 60 / 300
+2026-06-20 16:38:58,489 | INFO | finalignrag.rag_pipeline | Processed 70 / 300
+2026-06-20 16:47:23,403 | INFO | finalignrag.rag_pipeline | Processed 80 / 300
+2026-06-20 16:57:02,108 | INFO | finalignrag.rag_pipeline | Processed 90 / 300
+2026-06-20 17:05:34,530 | INFO | finalignrag.rag_pipeline | Processed 100 / 300
+2026-06-20 17:15:16,755 | INFO | finalignrag.rag_pipeline | Processed 110 / 300
+2026-06-20 17:23:24,741 | INFO | finalignrag.rag_pipeline | Processed 120 / 300
+2026-06-20 17:31:16,941 | INFO | finalignrag.rag_pipeline | Processed 130 / 300
+2026-06-20 17:39:12,688 | INFO | finalignrag.rag_pipeline | Processed 140 / 300
+2026-06-20 17:47:23,745 | INFO | finalignrag.rag_pipeline | Processed 150 / 300
+2026-06-20 17:57:16,912 | INFO | finalignrag.rag_pipeline | Processed 160 / 300
+2026-06-20 18:06:15,198 | INFO | finalignrag.rag_pipeline | Processed 170 / 300
+2026-06-20 18:13:15,684 | INFO | finalignrag.rag_pipeline | Processed 180 / 300
+2026-06-20 18:20:24,222 | INFO | finalignrag.rag_pipeline | Processed 190 / 300
+2026-06-20 18:29:22,009 | INFO | finalignrag.rag_pipeline | Processed 200 / 300
+2026-06-20 18:38:43,854 | INFO | finalignrag.rag_pipeline | Processed 210 / 300
+2026-06-20 18:47:48,659 | INFO | finalignrag.rag_pipeline | Processed 220 / 300
+2026-06-20 18:57:39,430 | INFO | finalignrag.rag_pipeline | Processed 230 / 300
+2026-06-20 19:06:11,955 | INFO | finalignrag.rag_pipeline | Processed 240 / 300
+2026-06-20 19:13:38,368 | INFO | finalignrag.rag_pipeline | Processed 250 / 300
+2026-06-20 19:23:20,920 | INFO | finalignrag.rag_pipeline | Processed 260 / 300
+2026-06-20 19:32:36,461 | INFO | finalignrag.rag_pipeline | Processed 270 / 300
+2026-06-20 19:40:07,449 | INFO | finalignrag.rag_pipeline | Processed 280 / 300
+2026-06-20 19:48:29,058 | INFO | finalignrag.rag_pipeline | Processed 290 / 300
+2026-06-20 19:58:35,862 | INFO | finalignrag.rag_pipeline | Processed 300 / 300
+2026-06-20 19:58:35,900 | INFO | finalignrag.rag_pipeline | Wrote 300 predictions to outputs/predictions/sft_two_stage_rag.jsonl
+2026-06-20 19:58:35,901 | INFO | run_inference | [sft_two_stage_rag] Done — 15664 s total, saved to outputs/predictions/sft_two_stage_rag.jsonl
+2026-06-20 19:58:36,556 | INFO | run_inference | All systems complete. Predictions in outputs/predictions/

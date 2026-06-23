@@ -1,0 +1,72 @@
+# =============================================================================
+# FinAlignRAG v2 — Full FinQA dataset + CoT reasoning steps
+# =============================================================================
+# Differences from configs/default.yaml:
+#   - sft_adapter_dir: outputs/sft_adapter_v2     (preserves v1 adapter)
+#   - max_steps: 1500                              (~6 epochs over 3439 examples)
+#   - inference_max_seq_length: 2048               (unchanged)
+# =============================================================================
+
+project:
+  name: FinAlignRAG-v2
+  seed: 42
+
+models:
+  base_model: Qwen/Qwen2.5-7B-Instruct
+  embedding_model: BAAI/bge-large-en-v1.5
+  reranker_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  sft_dir: data/sft
+  dpo_dir: data/dpo
+  chunk_size: 512
+  overlap: 50
+  split:
+    by: ticker
+    train_ratio: 0.70
+    val_ratio: 0.15
+    test_ratio: 0.15
+
+retrieval:
+  index_type: IndexFlatIP
+  normalize_l2: true
+  top_k_dense: 15
+  top_k_rerank: 5
+
+training:
+  output_dir: outputs
+  sft_adapter_dir: outputs/sft_adapter_v2
+  dpo_adapter_dir: outputs/dpo_adapter_v2
+
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+  learning_rate: 2.0e-4
+  batch_size: 1
+  gradient_accumulation_steps: 16
+  max_seq_length: 1024
+  inference_max_seq_length: 2048
+  logging_steps: 10
+  # 3439 examples / effective_batch 16 = 215 steps/epoch → 1500 steps ≈ 7 epochs
+  max_steps: 1500
+  seed: 42
+
+  fp16: true
+  gradient_checkpointing: true
+  deepspeed_config: null
+
+  debug:
+    max_steps: 5
+
+  dpo:
+    beta: 0.1
+    max_steps: 400
+
+eval:
+  numerical_tolerance: 0.001
+  retrieval_recall_k: 5
+  report_path: reports/ablation_results_v2.md

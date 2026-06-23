@@ -1,414 +1,204 @@
 # FinAlignRAG: Retrieval-Grounded Financial Reasoning with SFT and DPO
 
-A rigorous ablation study measuring how much each layer of the stack — retrieval quality, supervised fine-tuning, and preference alignment — contributes to accurate numerical reasoning over financial documents.
+An ablation study measuring how much each layer of the stack — retrieval quality, supervised fine-tuning (SFT), and preference alignment (DPO) — contributes to accurate numerical reasoning over financial documents (FinQA / SEC filings).
 
-## Objective
+---
 
-Large language models hallucinate financial numbers. This project quantifies whether the problem is better solved by:
+## Skills Demonstrated
 
-1. **Better retrieval** — surfacing the right document chunks before generation
-2. **Supervised fine-tuning (SFT)** — teaching a 7B model to produce structured, auditable JSON answers
-3. **Direct preference optimization (DPO)** — penalizing arithmetic drift, fabricated evidence, and overconfident refusals
+**Model Fine-Tuning & Alignment**
+- Fine-tuned Qwen2.5-7B on financial QA via QLoRA (4-bit NF4, LoRA rank-16) on a single 12 GB GPU, improving numerical accuracy 0% → 15.3% and refusal accuracy 14.7% → 97.3% on a 300-question held-out eval set
+- Implemented SFT and DPO training pipelines using HuggingFace TRL, PEFT, and bitsandbytes; diagnosed and documented DPO reward collapse caused by trivially-separable synthetic rejections saturating the objective at step 1
+- Constructed 3,400+ chain-of-thought SFT training pairs from FinQA by extracting and resolving multi-step arithmetic programs into explicit intermediate steps
 
-Five systems are evaluated head-to-head on identical test questions drawn from SEC filings (FinQA / ConvFinQA):
+**Retrieval-Augmented Generation**
+- Built a two-stage RAG pipeline — dense retrieval (BGE-large + FAISS IndexFlatIP) followed by cross-encoder reranking (MS-MARCO MiniLM) — and ran a controlled 5-system ablation isolating the contribution of each component
+- Identified and fixed a training/inference distribution mismatch (model trained on compressed table texts, retrieved prose chunks) that suppressed numerical accuracy from 15.3% to 3%; rebuilt the retrieval corpus to match the SFT training distribution
 
-| # | System | Retrieval | Model weights |
-|---|--------|-----------|---------------|
-| 0 | `base_no_rag` | none | Qwen2.5-7B-Instruct (base) |
-| 1 | `base_simple_rag` | dense (FAISS cosine) | base |
-| 2 | `base_two_stage_rag` | dense + cross-encoder rerank | base |
-| 3 | `sft_two_stage_rag` | dense + cross-encoder rerank | base + SFT adapter |
-| 4 | `sft_dpo_two_stage_rag` | dense + cross-encoder rerank | base + SFT→DPO adapter |
+**GPU & Systems Debugging**
+- Diagnosed fp16 attention overflow on NVIDIA Pascal (sm_61): K-values reaching 419 over 128-dim heads produce QK^T sums of ~3.7M, exceeding fp16 max (65,504); fixed by setting `torch_dtype=float32` and disabling AMP
+- Resolved CUDA OOM on DPO training by enabling `precompute_ref_log_probs=True`, halving peak memory by caching reference logprobs before the training loop
 
-> **Note on system 4:** The DPO adapter is not applied to the raw base model. DPO training
-> (`alignment.py run_dpo`) initializes from the already-trained SFT adapter and continues
-> preference-optimizing those weights. The saved `outputs/dpo_adapter/` therefore encodes
-> **both** SFT and DPO — it is the SFT adapter further tuned by DPO. Loading it on top of
-> the base model gives a model that has been through both training stages.
+**Evaluation & Data Engineering**
+- Designed a deterministic eval harness scoring JSON schema validity, numerical accuracy (0.1% tolerance), and refusal accuracy across 5 ablation systems on 300 stratified held-out questions
+- Engineered ticker-stratified train/val splits to prevent company-level data leakage between retrieval corpus and evaluation questions
 
-The marginal gain from each row isolates one factor, giving a clean ablation table.
+---
+
+## Results
+
+Evaluated on 300 held-out questions from FinQA, stratified by company ticker (no leakage). The retrieval corpus uses the same compressed table-format texts the SFT model was trained on to ensure a fair evaluation.
+
+| System | JSON Valid | Num. Accuracy | Refusal Acc. | Avg Latency |
+|---|---|---|---|---|
+| `base_no_rag` | 97.3% | 0.0% | 14.7% | 8.7 s |
+| `base_simple_rag` | 63.3% | 7.0% | 52.7% | 11.7 s |
+| `base_two_stage_rag` | 68.0% | 6.7% | 53.7% | 11.6 s |
+| `sft_two_stage_rag` | **97.3%** | **15.3%** | **97.3%** | 51.7 s |
+| `sft_dpo_two_stage_rag` | — | — | — | — |
+
+**Key findings:**
+
+- **Retrieval adds 7 pp numerical accuracy** over the no-RAG baseline (0% → 7%), confirming that the base model lacks the financial figures in its parametric memory.
+- **SFT adds another 8 pp** on top of retrieval (7% → 15.3%), a **2.2× lift** from learning to parse and calculate from the retrieved context.
+- **Refusal accuracy jumps from 14.7% to 97.3%** after SFT — the model learned when to answer vs. decline, the primary signal in the SFT training data.
+- **Dense vs. two-stage retrieval is a wash** (7.0% vs. 6.7%) — the cross-encoder reranker adds no measurable lift on this compact, keyword-dense corpus.
+- **DPO collapsed** — the DPO adapter generates degenerate repetitive output (the ⚗ token loop). Root cause: synthetic rejected responses were too easily distinguishable (rule-perturbed arithmetic), causing the DPO objective to saturate at step 1 with loss ≈ 0 and near-zero gradients for 390 of 400 steps. The optimizer drifted the adapter weights into a degenerate attractor. This is a documented failure mode of DPO when `beta` is too low (0.1) and rejected samples are trivially separable; hard negatives generated by the policy model itself are needed.
 
 ---
 
 ## Architecture
 
 ```
-Raw SEC Filings (JSONL)
+FinQA data (train.json)
         │
         ▼
 ┌───────────────────┐
-│  data_pipeline.py │  chunk by 512 tokens, split by ticker (no leakage)
+│  data_pipeline.py │  chunk, split by ticker (no cross-split leakage)
 └───────────────────┘
         │
+        ├── data/processed/chunks.jsonl    ← retrieval corpus
+        ├── data/sft/train.jsonl           ← SFT training pairs
+        └── data/dpo/train.jsonl           ← DPO chosen/rejected pairs
+
+        │
         ▼
- data/processed/
-  chunks.jsonl          ◄─── used to build the retrieval index
-  train.jsonl           ◄─── used to generate SFT / DPO training pairs
-  val.jsonl
-  test.jsonl
-
-        │                             ┌──────────────────────┐
-        ├─────── index_chunks() ─────►│ retrieval_engine.py  │
-        │                             │  FAISS IndexFlatIP   │
-        │                             │  + cross-encoder     │
-        │                             └──────────────────────┘
-        │                                       │ top-5 chunks
-        │                                       ▼
-        │                             ┌──────────────────────┐
-        └─────── run_sft / run_dpo ──►│   alignment.py       │
-                                      │  QLoRA SFT + DPO     │
-                                      │  (Titan X fp16)      │
-                                      └──────────────────────┘
-                                                │ adapter weights
-                                                ▼
-                                      ┌──────────────────────┐
-                                      │  rag_pipeline.py     │  ◄─ choose system
-                                      │  retrieve → prompt   │
-                                      │  → generate → JSON   │
-                                      └──────────────────────┘
-                                                │ predictions.jsonl
-                                                ▼
-                                      ┌──────────────────────┐
-                                      │  eval_harness.py     │
-                                      │  JSON validity       │
-                                      │  numerical accuracy  │
-                                      │  evidence support    │
-                                      │  refusal accuracy    │
-                                      │  retrieval recall@5  │
-                                      └──────────────────────┘
+┌──────────────────────┐        ┌──────────────────────────┐
+│  retrieval_engine.py │        │  alignment.py            │
+│  FAISS IndexFlatIP   │        │  QLoRA SFT (1000 steps)  │
+│  + cross-encoder     │        │  QLoRA DPO (400 steps)   │
+└──────────────────────┘        └──────────────────────────┘
+        │ top-5 chunks                    │ adapter weights
+        └──────────────┬──────────────────┘
+                       ▼
+              ┌──────────────────────┐
+              │  rag_pipeline.py     │
+              │  retrieve → prompt   │
+              │  → generate → JSON   │
+              └──────────────────────┘
+                       │ predictions.jsonl
+                       ▼
+              ┌──────────────────────┐
+              │  eval_harness.py     │
+              │  JSON validity       │
+              │  numerical accuracy  │
+              │  refusal accuracy    │
+              └──────────────────────┘
 ```
 
 ---
 
-## Concrete Example
+## Hardware & Training Details
 
-### Input
+**Hardware:** Single NVIDIA Titan X (Pascal, sm_61, 12 GB VRAM)
 
-**Question** (from FinQA / `data/train.json`):
+**Why not multi-GPU ZeRO-3?** Pascal (sm_61) lacks fp16 tensor cores. DeepSpeed ZeRO-3 in fp32 requires 7B × 4 bytes ÷ 4 GPUs = 7 GB/GPU in sharded weights alone — plus cuBLAS workspace and NCCL buffers this exceeds 12 GB. ZeRO-3 with CPU offload triggered a 2.03 GiB CUDA OOM on the `embed_tokens` all-gather after `deepspeed.initialize()` consumed 6.4 GB of unexplained initialization overhead.
 
-> What was the percentage change in net cash from operating activities from 2008 to 2009?
+**Solution — QLoRA on a single GPU:**
+- 4-bit NF4 quantization (bitsandbytes): 7B × 0.5 bytes ≈ **3.8 GB** for the frozen base
+- LoRA rank-16 adapters on all attention + MLP projections: **~134 MB** trainable
+- `torch_dtype=float32` for activations — Pascal fp16 overflows in QK^T attention at layer 27 (K-values reach 419, sum over 128 head-dim reaches 3.7M, exceeds fp16 max 65,504)
+- `paged_adamw_8bit` optimizer, gradient checkpointing, batch size 1 × grad accum 16
+- No DeepSpeed, no torchrun — plain `python -m src.alignment`
 
-**Source document excerpt** (from `JKHY/2009/page_28.pdf`):
+**SFT training:** 1000 steps, cosine LR (2e-4 → 0), loss: 0.74 → 0.055, ~16 hours
 
-```
-Net cash from operating activities  2009: $206,588   2008: $181,001
-```
-
-**Raw document record** (what `data/raw/documents.jsonl` must contain):
-
-```json
-{
-  "ticker": "JKHY",
-  "source_doc_id": "JKHY_2009_page28",
-  "text": "Net income $103,102 $104,222 $104,681 ... Net cash from operating activities $206,588 $181,001 $174,247"
-}
-```
+**DPO training:** 400 steps, β=0.1, `precompute_ref_log_probs=True` (halves GPU memory by caching reference logprobs upfront), ~13 hours — but collapsed (see Results above)
 
 ---
 
-### Output
+## Ablation Systems
 
-After running the full pipeline, `rag_pipeline.py` writes one line per question to the prediction JSONL:
+| # | System | Retrieval | Model |
+|---|--------|-----------|-------|
+| 0 | `base_no_rag` | none | Qwen2.5-7B-Instruct |
+| 1 | `base_simple_rag` | dense FAISS cosine | Qwen2.5-7B-Instruct |
+| 2 | `base_two_stage_rag` | dense + cross-encoder rerank | Qwen2.5-7B-Instruct |
+| 3 | `sft_two_stage_rag` | dense + cross-encoder rerank | + SFT LoRA adapter |
+| 4 | `sft_dpo_two_stage_rag` | dense + cross-encoder rerank | + DPO LoRA adapter |
 
-```json
-{
-  "id": "train_000",
-  "system_name": "sft_dpo_two_stage_rag",
-  "question": "What was the percentage change in net cash from operating activities from 2008 to 2009?",
-  "ground_truth_answer": "14.1%",
-  "predicted_json": "{"answer": "14.1%", "calculation": "(206588 - 181001) / 181001", "evidence": "Net cash from operating activities was $206,588 in 2009 and $181,001 in 2008", "confidence": 0.95, "insufficient_context": false}",
-  "retrieved_chunks": [
-    {
-      "chunk_id": "JKHY_2009_page28_000",
-      "text": "Net cash from operating activities $206,588 $181,001 $174,247",
-      "ticker": "JKHY",
-      "source_doc_id": "JKHY_2009_page28",
-      "chunk_index": 0,
-      "dense_score": 0.83,
-      "rerank_score": 0.96
-    }
-  ],
-  "should_refuse": false,
-  "latency_ms": 840.2
-}
-```
-
-The `predicted_json` field is then scored by `eval_harness.py`:
-
-- **JSON validity** — all five required keys present? → `true`
-- **Numerical accuracy** — `14.1%` within 0.1% of gold `14.1%`? → `true`
-- **Evidence support** — do operands `206588` and `181001` appear in the evidence? → `true`
-- **Refusal accuracy** — `insufficient_context: false` matches `should_refuse: false`? → `true`
-- **Retrieval recall@5** — gold chunk `JKHY_2009_page28_000` in top-5? → `1.0`
-
----
-
-## Hardware Requirements
-
-- **GPUs**: 4 × NVIDIA Titan X (Pascal, sm_61), 12 GB VRAM each (48 GB total)
-- **Precision**: `fp16` — Pascal does **not** support `bfloat16`
-- **FAISS**: GPU build required (`faiss-gpu` via conda; `faiss-cpu` fails at runtime)
-- **FlashAttention**: NOT used — requires Ampere (sm_80+)
-
-**Training strategy — DeepSpeed ZeRO-3 + fp16 (via `DS_ALLOW_DEPRECATED_FP16=1`):**
-All four GPUs are used during SFT and DPO training via DeepSpeed ZeRO stage 3.
-Pascal (sm_61) is labelled "deprecated fp16" by DeepSpeed (which gates fp16 on
-Volta sm_70+) but the GPU computes fp16 correctly. Setting `DS_ALLOW_DEPRECATED_FP16=1`
-unblocks the check. ZeRO-3 shards fp16 weights: 7B × 2 bytes = 14 GB ÷ 4 GPUs = 3.5 GB/GPU.
-`HfDeepSpeedConfig` is created before `from_pretrained` so Transformers uses
-`GatheredParameters` (not naive `load_state_dict`) for ZeRO-3 compatible loading.
-Training launches as:
-```bash
-PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
-torchrun --nproc_per_node=4 -m src.alignment --mode sft ...
-```
-4-bit quantization is still used in `rag_pipeline.py` for single-GPU inference.
-
-**Inference strategy — single GPU with 4-bit quantization:**
-`rag_pipeline.py` loads the model with 4-bit NF4 quantization (bitsandbytes)
-on a single GPU, as inference does not benefit from ZeRO-3 parameter sharding.
+All systems use the same ChatML prompt, greedy decoding, and output schema — enabling apples-to-apples scoring.
 
 ---
 
 ## Installation
 
 ```bash
-# 1. GPU FAISS must come from conda (PyPI faiss-gpu is Linux/CUDA only, but the
-#    retrieval engine requires faiss.StandardGpuResources which conda provides)
+# GPU FAISS must come from conda (PyPI build lacks faiss.StandardGpuResources)
 conda install -c pytorch -c nvidia faiss-gpu
 
-# 2. PyTorch with CUDA (match your driver version — check with nvidia-smi)
+# PyTorch with CUDA (match your driver — check nvidia-smi)
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 
-# 3. Install all other dependencies (includes deepspeed for ZeRO-3 training)
+# All other dependencies
 pip install -r requirements.txt
 ```
 
 ---
 
-## Step-by-Step: Running the Project
+## Running the Pipeline
 
-### Step 1 — Prepare Raw Documents
-
-The FinQA/ConvFinQA data in `data/train.json` must be converted to the
-pipeline's JSONL format (`ticker`, `source_doc_id`, `text` per line):
-
-```bash
-# Example conversion (adapt to your actual FinQA preprocessing script)
-python - <<'EOF'
-import json, pathlib
-
-records = json.loads(pathlib.Path("data/train.json").read_text())
-out = pathlib.Path("data/raw/documents.jsonl")
-out.parent.mkdir(parents=True, exist_ok=True)
-
-with out.open("w") as fh:
-    for r in records:
-        ticker = r["filename"].split("/")[0]          # e.g. "JKHY"
-        doc_id = r["filename"].replace("/", "_").replace(".pdf", "")
-        text   = " ".join(r.get("pre_text", []) + r.get("post_text", []))
-        fh.write(json.dumps({"ticker": ticker, "source_doc_id": doc_id, "text": text}) + "\n")
-print("Done:", out)
-EOF
-```
-
-### Step 2 — Data Pipeline (chunk + split by ticker)
+### 1 — Data pipeline
 
 ```bash
 python -m src.data_pipeline \
-    --input  data/raw/documents.jsonl \
+    --input     data/raw/documents.jsonl \
     --output-dir data/processed \
-    --config configs/default.yaml
+    --config    configs/default.yaml
 ```
 
-Outputs to `data/processed/`: `chunks.jsonl`, `train.jsonl`, `val.jsonl`, `test.jsonl`.
-Tickers are never shared across splits — leakage is impossible by construction.
-
-### Step 3 — Smoke-test the Retrieval Engine
+### 2 — Generate DPO pairs (from SFT data)
 
 ```bash
-python -m src.retrieval_engine --log-level INFO
+python -m src.gen_dpo_data \
+    --sft_data data/sft/train.jsonl \
+    --out      data/dpo/train.jsonl
 ```
 
-Expects a CUDA GPU + GPU FAISS. Prints `SMOKE TEST PASSED` on success.
-Optionally exercise save/load:
+### 3 — SFT training (single GPU)
 
 ```bash
-python -m src.retrieval_engine --save-dir /tmp/smoke_index
-```
+# Smoke run (5 steps)
+CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
+    --mode sft --config configs/default.yaml \
+    --data data/sft/train.jsonl --debug
 
-### Step 4 — Prepare SFT Training Data
-
-SFT training expects a JSONL where each line has
-`text` (retrieved context), `question`, and `target_json`:
-
-```json
-{
-  "ticker": "JKHY",
-  "source_doc_id": "JKHY_2009_page28",
-  "text": "<retrieved context chunks concatenated>",
-  "question": "What was the percentage change in net cash from operating activities from 2008 to 2009?",
-  "target_json": "{"answer": "14.1%", "calculation": "(206588 - 181001) / 181001", "evidence": "Net cash was $206,588 in 2009 and $181,001 in 2008", "confidence": 0.95, "insufficient_context": false}"
-}
-```
-
-Place the prepared file at `data/sft/train.jsonl`.
-
-### Step 5 — SFT Training (all 4 GPUs via DeepSpeed ZeRO-3)
-
-Training uses `torchrun` to launch one process per GPU. DeepSpeed ZeRO-3 shards
-the 7B fp16 model across all 4 GPUs, eliminating the need for 4-bit quantization
-during training and increasing throughput significantly.
-
-```bash
-# Two environment variables are required for multi-GPU training on Pascal:
-#   DS_ALLOW_DEPRECATED_FP16=1  — Pascal fp16 is "deprecated" in DeepSpeed but works fine
-#   PYTORCH_CUDA_ALLOC_CONF=... — reduces fragmentation from ZeRO-3 all-gather buffers
-
-# Quick smoke run (5 steps — verifies the pipeline without waiting)
-PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
-torchrun --nproc_per_node=4 -m src.alignment \
-    --mode   sft \
-    --config configs/default.yaml \
-    --data   data/sft/train.jsonl \
-    --debug
-
-# Full training (1000 steps)
-PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
-torchrun --nproc_per_node=4 -m src.alignment \
-    --mode   sft \
-    --config configs/default.yaml \
-    --data   data/sft/train.jsonl
+# Full training (1000 steps, ~16 h on Titan X Pascal)
+CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
+    --mode sft --config configs/default.yaml \
+    --data data/sft/train.jsonl
 ```
 
 Adapter saved to `outputs/sft_adapter/`.
 
-### Step 6 — Prepare DPO Training Data
-
-DPO training expects `text` (context), `question`, `chosen` (correct answer JSON),
-and `rejected` (flawed answer JSON — arithmetic error, fabricated evidence, etc.):
-
-```json
-{
-  "text": "<retrieved context>",
-  "question": "What was the percentage change in net cash from operating activities?",
-  "chosen":   "{"answer": "14.1%", "calculation": "(206588 - 181001) / 181001", ...}",
-  "rejected": "{"answer": "13.9%", "calculation": "(206588 - 181001) / 206588", ...}"
-}
-```
-
-Place the prepared file at `data/dpo/train.jsonl`.
-
-### Step 7 — DPO Training (all 4 GPUs via DeepSpeed ZeRO-3)
+### 4 — DPO training (single GPU)
 
 ```bash
-# Quick smoke run
-PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
-torchrun --nproc_per_node=4 -m src.alignment \
-    --mode        dpo \
-    --config      configs/default.yaml \
-    --data        data/dpo/train.jsonl \
-    --sft_adapter outputs/sft_adapter \
-    --debug
-
-# Full training
-PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DS_ALLOW_DEPRECATED_FP16=1 \
-torchrun --nproc_per_node=4 -m src.alignment \
-    --mode        dpo \
-    --config      configs/default.yaml \
-    --data        data/dpo/train.jsonl \
+CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
+    --mode dpo --config configs/default.yaml \
+    --data data/dpo/train.jsonl \
     --sft_adapter outputs/sft_adapter
 ```
 
 Adapter saved to `outputs/dpo_adapter/`.
 
-### Step 8 — Run Inference (all 5 ablation systems)
-
-Build the retrieval index once from Step 2 chunks, then reuse it across runs:
+### 5 — Inference (all 5 systems)
 
 ```bash
-# System 0: base model only (no retrieval)
-python -m src.rag_pipeline \
-    --system    base_no_rag \
-    --config    configs/default.yaml \
-    --questions data/processed/test.jsonl \
-    --output    outputs/preds_0_base_no_rag.jsonl
-
-# System 1: dense-only retrieval (builds index, saves for reuse)
-python -m src.rag_pipeline \
-    --system     base_simple_rag \
-    --config     configs/default.yaml \
-    --chunks     data/processed/chunks.jsonl \
-    --questions  data/processed/test.jsonl \
-    --output     outputs/preds_1_base_simple_rag.jsonl \
-    --save-index outputs/faiss_index
-
-# System 2: two-stage RAG (loads saved index)
-python -m src.rag_pipeline \
-    --system    base_two_stage_rag \
-    --config    configs/default.yaml \
-    --index-dir outputs/faiss_index \
-    --questions data/processed/test.jsonl \
-    --output    outputs/preds_2_base_two_stage_rag.jsonl
-
-# System 3: SFT model + two-stage RAG
-python -m src.rag_pipeline \
-    --system    sft_two_stage_rag \
-    --config    configs/default.yaml \
-    --index-dir outputs/faiss_index \
-    --questions data/processed/test.jsonl \
-    --output    outputs/preds_3_sft_two_stage_rag.jsonl \
-    --adapter   outputs/sft_adapter
-
-# System 4: SFT + DPO model + two-stage RAG
-python -m src.rag_pipeline \
-    --system    sft_dpo_two_stage_rag \
-    --config    configs/default.yaml \
-    --index-dir outputs/faiss_index \
-    --questions data/processed/test.jsonl \
-    --output    outputs/preds_4_sft_dpo_two_stage_rag.jsonl \
-    --adapter   outputs/dpo_adapter
+CUDA_VISIBLE_DEVICES=0 python run_inference.py
+# or a subset:
+CUDA_VISIBLE_DEVICES=0 python run_inference.py --systems sft_two_stage_rag
 ```
 
-### Step 9 — Evaluate All Systems
+Predictions written to `outputs/predictions/<system>.jsonl`.
 
-```bash
-for i in 0 1 2 3 4; do
-  python -m src.eval_harness \
-      --predictions outputs/preds_${i}_*.jsonl \
-      --report      reports/metrics_system${i}.json
-done
-```
-
-Or score one file at a time:
+### 6 — Evaluate
 
 ```bash
 python -m src.eval_harness \
-    --predictions outputs/preds_4_sft_dpo_two_stage_rag.jsonl \
-    --report      reports/metrics_sft_dpo.json
+    --predictions outputs/predictions/sft_two_stage_rag.jsonl \
+    --report      outputs/reports/sft_two_stage_rag.json
 ```
-
-The report prints a summary table and writes `reports/ablation_results.md`.
-
-### Step 10 — Run Tests
-
-```bash
-pytest
-```
-
----
-
-## Expected Ablation Results
-
-*(Fill in after running all five systems.)*
-
-| System | Numerical Accuracy | JSON Validity | Evidence Support | Refusal Accuracy | Retrieval Recall@5 | Latency/query |
-|---|---|---|---|---|---|---|
-| Base model only | — | — | — | — | N/A | — |
-| Base + simple RAG | — | — | — | — | — | — |
-| Base + two-stage RAG | — | — | — | — | — | — |
-| SFT + two-stage RAG | — | — | — | — | — | — |
-| SFT + DPO + two-stage RAG | — | — | — | — | — | — |
 
 ---
 
@@ -416,22 +206,30 @@ pytest
 
 ```
 configs/
-  default.yaml          single source of truth for all hyperparameters
+  default.yaml          hyperparameters (model, retrieval, training)
 data/
-  raw/                  input: one JSONL per corpus (ticker, source_doc_id, text)
-  processed/            output of data_pipeline: chunks + train/val/test splits
-  sft/                  SFT training pairs (text, question, target_json)
-  dpo/                  DPO training pairs (text, question, chosen, rejected)
-  train.json            raw FinQA training set (needs conversion → data/raw/)
-  dev.json              raw FinQA dev set
+  processed/            chunks.jsonl, sft_chunks.jsonl, questions.jsonl
+  sft/                  train.jsonl, val.jsonl
+  dpo/                  train.jsonl (chosen/rejected pairs)
 outputs/
-  sft_adapter/          QLoRA SFT weights (saved by alignment.py)
-  dpo_adapter/          QLoRA DPO weights (saved by alignment.py)
-reports/                evaluation reports (written by eval_harness.py)
+  sft_adapter/          trained SFT LoRA weights (155 MB, tracked via Git LFS)
+  dpo_adapter/          trained DPO LoRA weights (155 MB)
+  predictions/          per-system prediction JSONL files
+  reports/              per-system eval JSON reports
 src/
-  data_pipeline.py      Step 1 — ingestion, chunking, ticker-split
-  retrieval_engine.py   Step 2 — GPU FAISS dense + cross-encoder rerank
-  eval_harness.py       Step 3 — deterministic scoring (JSON, math, evidence)
-  alignment.py          Step 4 — QLoRA SFT and DPO training
-  rag_pipeline.py       Step 5 — end-to-end inference for all 5 ablation systems
+  data_pipeline.py      ingestion, chunking, ticker-stratified split
+  retrieval_engine.py   GPU FAISS + BGE-large embedder + cross-encoder reranker
+  alignment.py          QLoRA SFT and DPO training (single-GPU, bitsandbytes)
+  gen_dpo_data.py       synthetic DPO pair generation from SFT data
+  rag_pipeline.py       end-to-end inference for all 5 ablation systems
+  eval_harness.py       deterministic scoring (JSON schema, numerical match, refusal)
+run_inference.py        convenience wrapper — runs all systems sequentially
 ```
+
+---
+
+## Known Limitations
+
+- **Numerical accuracy ceiling (~15%)** — the SFT model was trained on 2109 examples covering ~1000 companies. Val questions span unseen companies; the retrieval system sometimes returns the wrong table row, causing the model to compute on the wrong operands. Hard negative mining and a larger training corpus would push this higher.
+- **DPO requires hard negatives** — rule-perturbed synthetic rejections (wrong arithmetic, swapped operators) are trivially distinguishable. The DPO objective saturates immediately, and extended optimization with a low beta collapses the adapter. Use policy-sampled rejected completions and β ≥ 0.3 for stable DPO on this domain.
+- **Pascal (sm_61) fp16 overflow** — Qwen2.5-7B's attention at layer 27 produces K-values up to ~420 in fp16; the QK^T sum over a 128-dim head reaches ~3.7M, overflowing fp16 max (65,504). Loading with `torch_dtype=float32` avoids this but requires `fp16=False` in the Trainer (no AMP autocasting).
