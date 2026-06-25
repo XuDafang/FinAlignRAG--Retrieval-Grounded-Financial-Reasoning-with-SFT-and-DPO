@@ -7,13 +7,13 @@ An ablation study measuring how much each layer of the stack — retrieval quali
 ## Skills Demonstrated
 
 **Model Fine-Tuning & Alignment**
-- Fine-tuned Qwen2.5-7B on financial QA via QLoRA (4-bit NF4, LoRA rank-16) on a single 12 GB GPU, improving numerical accuracy 0% → 15.3% and refusal accuracy 14.7% → 97.3% on a 300-question held-out eval set
-- Implemented SFT and DPO training pipelines using HuggingFace TRL, PEFT, and bitsandbytes; diagnosed and documented DPO reward collapse caused by trivially-separable synthetic rejections saturating the objective at step 1
-- Constructed 3,400+ chain-of-thought SFT training pairs from FinQA by extracting and resolving multi-step arithmetic programs (e.g. `subtract(206588, 181001)=25587; divide(25587, 181001)=14.1%`) into explicit intermediate steps; capped evidence field length in training targets to prevent inference truncation, achieving 100% JSON validity and 2.6× lower latency
+- Fine-tuned Qwen2.5-7B on financial QA via QLoRA (4-bit NF4, LoRA rank-16) on a single 12 GB GPU across two training runs (2,109 and 3,439 examples), improving numerical accuracy 0% → 15.3% and refusal accuracy 14.7% → 100% on a 300-question held-out eval set
+- Implemented SFT and DPO training pipelines using HuggingFace TRL, PEFT, and bitsandbytes; diagnosed and documented DPO reward collapse caused by trivially-separable synthetic rejections saturating the objective at step 1 with loss ≈ 0
+- Iterated on SFT output format across two training runs: identified that long evidence fields caused 14% JSON truncation rate; introduced compact chain-of-thought calculation steps (`subtract(206588, 181001)=25587; divide(25587, 181001)=14.1%`) and a 350-char evidence cap, eliminating truncation entirely (100% JSON validity) and reducing inference latency 2.6× (51.7 s → 19.6 s per question)
 
 **Retrieval-Augmented Generation**
-- Built a two-stage RAG pipeline — dense retrieval (BGE-large + FAISS IndexFlatIP) followed by cross-encoder reranking (MS-MARCO MiniLM) — and ran a controlled 5-system ablation isolating the contribution of each component
-- Identified and fixed a training/inference distribution mismatch (model trained on compressed table texts, retrieved prose chunks) that suppressed numerical accuracy from 15.3% to 3%; rebuilt the retrieval corpus to match the SFT training distribution
+- Built a two-stage RAG pipeline — dense retrieval (BGE-large + FAISS IndexFlatIP) followed by cross-encoder reranking (MS-MARCO MiniLM) — and ran a controlled 5-system ablation isolating the contribution of each component to numerical accuracy (0% → 7% → 15.3%)
+- Diagnosed and fixed two retrieval corpus bugs: (1) a training/inference distribution mismatch where prose chunks were indexed against a model trained on compressed table texts, dropping accuracy from 15.3% to 3%; (2) a corpus coverage gap where 118 of 177 evaluation source documents were missing from the retrieval index, causing near-zero accuracy on the affected questions
 
 **GPU & Systems Debugging**
 - Diagnosed fp16 attention overflow on NVIDIA Pascal (sm_61): K-values reaching 419 over 128-dim heads produce QK^T sums of ~3.7M, exceeding fp16 max (65,504); fixed by setting `torch_dtype=float32` and disabling AMP
@@ -21,7 +21,7 @@ An ablation study measuring how much each layer of the stack — retrieval quali
 
 **Evaluation & Data Engineering**
 - Designed a deterministic eval harness scoring JSON schema validity, numerical accuracy (0.1% tolerance), and refusal accuracy across 5 ablation systems on 300 stratified held-out questions
-- Engineered ticker-stratified train/val splits to prevent company-level data leakage between retrieval corpus and evaluation questions
+- Extracted and resolved multi-step arithmetic programs from FinQA's structured annotation format (handling both single-qa and multi-qa records) to build 3,439 chain-of-thought training pairs from the full train+dev split; applied ticker-stratified splits to prevent company-level leakage
 
 ---
 
