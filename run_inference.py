@@ -48,8 +48,8 @@ DPO_ADAPTER_V1 = "outputs/dpo_adapter"
 # v2 paths (full FinQA + CoT retraining)
 CHUNKS_V2    = "data/processed/sft_chunks_v2.jsonl"
 INDEX_DIR_V2 = "outputs/sft_faiss_index_v2"
-SFT_ADAPTER_V2 = "outputs/sft_adapter_v2"
-DPO_ADAPTER_V2 = "outputs/dpo_adapter_v2"
+SFT_ADAPTER_V2 = "outputs/sft_adapter_v2b"
+DPO_ADAPTER_V2 = "outputs/dpo_adapter_v2b"
 
 QUESTIONS    = "data/processed/questions.jsonl"
 PREDICTIONS  = "outputs/predictions"

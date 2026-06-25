@@ -37,8 +37,8 @@ retrieval:
 
 training:
   output_dir: outputs
-  sft_adapter_dir: outputs/sft_adapter_v2
-  dpo_adapter_dir: outputs/dpo_adapter_v2
+  sft_adapter_dir: outputs/sft_adapter_v2b
+  dpo_adapter_dir: outputs/dpo_adapter_v2b
 
   lora_rank: 16
   lora_alpha: 32

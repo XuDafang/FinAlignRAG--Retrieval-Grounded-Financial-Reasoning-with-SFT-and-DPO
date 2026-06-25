@@ -58,16 +58,19 @@ def _op_name(op: str) -> str:
     return _OP_MAP.get(key, key or op)
 
 
-def build_cot(steps: list[dict[str, Any]]) -> str:
-    """Build a semicolon-separated CoT string from FinQA qa.steps.
+_EVIDENCE_MAX_CHARS = 350  # cap training-target evidence to prevent inference truncation
 
-    Back-references (#N) are resolved to the actual intermediate result so the
-    model sees concrete numbers at every step rather than opaque placeholders.
+
+def build_cot(steps: list[dict[str, Any]]) -> str:
+    """Build a compact semicolon-separated CoT string from FinQA qa.steps.
+
+    Format: "subtract(206588, 181001)=25587; divide(25587, 181001)=14.1%"
+    Back-references (#N) are resolved to actual intermediate results.
     """
     results: list[str] = []
     parts: list[str] = []
 
-    for i, step in enumerate(steps):
+    for step in steps:
         op = _op_name(step.get("op", ""))
         arg1 = str(step.get("arg1", ""))
         arg2 = str(step.get("arg2", ""))
@@ -85,11 +88,22 @@ def build_cot(steps: list[dict[str, Any]]) -> str:
         results.append(res)
 
         if a2:
-            parts.append(f"Step {i + 1}: {op}({a1}, {a2}) = {res}")
+            parts.append(f"{op}({a1}, {a2})={res}")
         else:
-            parts.append(f"Step {i + 1}: {op}({a1}) = {res}")
+            parts.append(f"{op}({a1})={res}")
 
     return "; ".join(parts)
+
+
+def _cap_evidence(text: str, max_chars: int = _EVIDENCE_MAX_CHARS) -> str:
+    """Truncate evidence at a statement boundary to keep training targets short."""
+    if len(text) <= max_chars:
+        return text
+    # Prefer cutting at the last ";" before the limit
+    cut = text.rfind(";", 0, max_chars)
+    if cut > max_chars // 2:
+        return text[: cut + 1].strip()
+    return text[:max_chars].strip()
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +152,7 @@ def _process_qa(
     target = {
         "answer": answer,
         "calculation": cot,
-        "evidence": text,
+        "evidence": _cap_evidence(text),
         "confidence": 0.95,
         "insufficient_context": False,
     }
@@ -155,6 +169,26 @@ def _process_qa(
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
+def _add_chunk(
+    chunks: dict[tuple[str, str], dict[str, Any]],
+    chunk_counter: defaultdict[str, int],
+    ticker: str,
+    source_doc_id: str,
+    text: str,
+) -> None:
+    ck = (source_doc_id, text)
+    if ck not in chunks:
+        idx = chunk_counter[source_doc_id]
+        chunk_counter[source_doc_id] += 1
+        chunks[ck] = {
+            "chunk_id": f"{source_doc_id}_{idx:03d}",
+            "text": text,
+            "ticker": ticker,
+            "source_doc_id": source_doc_id,
+            "chunk_index": idx,
+        }
+
+
 def build(
     finqa_files: list[str],
     val_questions_path: str,
@@ -169,7 +203,6 @@ def build(
 
     sft_records: list[dict[str, Any]] = []
     seen_questions: set[str] = set()
-    # chunk corpus: keyed by (source_doc_id, text) for deduplication
     chunks: dict[tuple[str, str], dict[str, Any]] = {}
     chunk_counter: defaultdict[str, int] = defaultdict(int)
 
@@ -178,31 +211,30 @@ def build(
             data = json.load(fh)
 
         for ex in data:
+            ticker, source_doc_id = _filename_to_ids(ex["filename"])
             for qa in _get_qa_entries(ex):
+                gold_inds = qa.get("gold_inds") or {}
+                q_key = qa.get("question", "").strip().lower()
+
+                # Always add gold_inds to retrieval corpus — even for val questions.
+                # Val question contexts must be retrievable at eval time.
+                for text in gold_inds.values():
+                    if text:
+                        _add_chunk(chunks, chunk_counter, ticker, source_doc_id, text)
+
+                # Only add to SFT training pairs if not a val question
+                if not q_key or q_key in val_questions:
+                    continue
+
                 record = _process_qa(ex, qa, val_questions)
                 if record is None:
                     continue
 
-                q_key = record["question"].lower()
                 if q_key in seen_questions:
                     continue
                 seen_questions.add(q_key)
 
                 sft_records.append(record)
-
-                # Accumulate retrieval corpus
-                ck = (record["source_doc_id"], record["text"])
-                if ck not in chunks:
-                    sid = record["source_doc_id"]
-                    idx = chunk_counter[sid]
-                    chunk_counter[sid] += 1
-                    chunks[ck] = {
-                        "chunk_id": f"{sid}_{idx:03d}",
-                        "text": record["text"],
-                        "ticker": record["ticker"],
-                        "source_doc_id": sid,
-                        "chunk_index": idx,
-                    }
 
     os.makedirs(os.path.dirname(out_sft) or ".", exist_ok=True)
     os.makedirs(os.path.dirname(out_chunks) or ".", exist_ok=True)
@@ -217,7 +249,7 @@ def build(
 
     print(f"SFT training pairs : {len(sft_records):,}  →  {out_sft}")
     print(f"Retrieval corpus   : {len(chunks):,} chunks  →  {out_chunks}")
-    print(f"Val questions excluded: {len(val_questions)}")
+    print(f"Val questions excluded from training: {len(val_questions)}")
 
 
 def main(argv: list[str] | None = None) -> int:
