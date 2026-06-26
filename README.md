@@ -114,7 +114,8 @@ FinQA data (train.json)
 - `paged_adamw_8bit` optimizer, gradient checkpointing, batch size 1 × grad accum 16
 - No DeepSpeed, no torchrun — plain `python -m src.alignment`
 
-**SFT training:** 1000 steps, cosine LR (2e-4 → 0), loss: 0.74 → 0.055, ~16 hours
+**SFT training (v1):** 1000 steps, cosine LR (2e-4 → 0), loss: 0.74 → 0.055, ~16 hours
+**SFT training (v2b):** 1500 steps on 3,439 examples, loss: 1.753 → 0.079, ~24 hours
 
 **DPO training:** 400 steps, β=0.1, `precompute_ref_log_probs=True` (halves GPU memory by caching reference logprobs upfront), ~13 hours — but collapsed (see Results above)
 
@@ -151,7 +152,7 @@ pip install -r requirements.txt
 
 ## Running the Pipeline
 
-### 1 — Data pipeline
+### 1 — Data pipeline (v1)
 
 ```bash
 python -m src.data_pipeline \
@@ -159,6 +160,17 @@ python -m src.data_pipeline \
     --output-dir data/processed \
     --config    configs/default.yaml
 ```
+
+Produces `data/processed/sft_chunks.jsonl` (retrieval corpus) and `data/sft/train.jsonl` (2,109 training pairs).
+
+### 1b — Data pipeline (v2 — full FinQA + CoT)
+
+```bash
+python -m src.build_sft_data \
+    --config configs/v2.yaml
+```
+
+Produces `data/processed/sft_chunks_v2.jsonl` (4,878 chunks, all val source docs covered) and `data/sft/train_v2.jsonl` (3,439 CoT training pairs).
 
 ### 2 — Generate DPO pairs (from SFT data)
 
@@ -176,13 +188,18 @@ CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
     --mode sft --config configs/default.yaml \
     --data data/sft/train.jsonl --debug
 
-# Full training (1000 steps, ~16 h on Titan X Pascal)
+# v1 — 1000 steps (~16 h on Titan X Pascal)
 CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
     --mode sft --config configs/default.yaml \
     --data data/sft/train.jsonl
+
+# v2b — 1500 steps on full FinQA + CoT (~24 h)
+CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
+    --mode sft --config configs/v2.yaml \
+    --data data/sft/train_v2.jsonl
 ```
 
-Adapter saved to `outputs/sft_adapter/`.
+Adapters saved to `outputs/sft_adapter/` (v1) and `outputs/sft_adapter_v2b/` (v2b).
 
 ### 4 — DPO training (single GPU)
 
@@ -198,12 +215,16 @@ Adapter saved to `outputs/dpo_adapter/`.
 ### 5 — Inference (all 5 systems)
 
 ```bash
+# v1 corpus + adapter
 CUDA_VISIBLE_DEVICES=0 python run_inference.py
 # or a subset:
 CUDA_VISIBLE_DEVICES=0 python run_inference.py --systems sft_two_stage_rag
+
+# v2b corpus + adapter
+CUDA_VISIBLE_DEVICES=0 python run_inference.py --v2
 ```
 
-Predictions written to `outputs/predictions/<system>.jsonl`.
+Predictions written to `outputs/predictions/<system>.jsonl` (v1) or `outputs/predictions/v2/<system>.jsonl` (v2b).
 
 ### 6 — Evaluate
 
@@ -219,24 +240,28 @@ python -m src.eval_harness \
 
 ```
 configs/
-  default.yaml          hyperparameters (model, retrieval, training)
+  default.yaml          hyperparameters for v1 (model, retrieval, training)
+  v2.yaml               overrides for v2b (1500 steps, v2 adapter/corpus paths)
 data/
-  processed/            chunks.jsonl, sft_chunks.jsonl, questions.jsonl
-  sft/                  train.jsonl, val.jsonl
+  processed/            chunks.jsonl, sft_chunks.jsonl, sft_chunks_v2.jsonl, questions.jsonl
+  sft/                  train.jsonl (v1, 2109 ex), train_v2.jsonl (v2b, 3439 ex), val.jsonl
   dpo/                  train.jsonl (chosen/rejected pairs)
 outputs/
-  sft_adapter/          trained SFT LoRA weights (155 MB, tracked via Git LFS)
-  dpo_adapter/          trained DPO LoRA weights (155 MB)
-  predictions/          per-system prediction JSONL files
+  sft_adapter/          v1 SFT LoRA weights (tracked via Git LFS)
+  sft_adapter_v2b/      v2b SFT LoRA weights (compact CoT, capped evidence)
+  dpo_adapter/          DPO LoRA weights (collapsed — see Results)
+  predictions/          v1 per-system prediction JSONL files
+  predictions/v2/       v2b per-system prediction JSONL files
   reports/              per-system eval JSON reports
 src/
-  data_pipeline.py      ingestion, chunking, ticker-stratified split
+  data_pipeline.py      ingestion, chunking, ticker-stratified split (v1)
+  build_sft_data.py     full FinQA CoT extraction + hybrid corpus builder (v2b)
   retrieval_engine.py   GPU FAISS + BGE-large embedder + cross-encoder reranker
   alignment.py          QLoRA SFT and DPO training (single-GPU, bitsandbytes)
   gen_dpo_data.py       synthetic DPO pair generation from SFT data
   rag_pipeline.py       end-to-end inference for all 5 ablation systems
   eval_harness.py       deterministic scoring (JSON schema, numerical match, refusal)
-run_inference.py        convenience wrapper — runs all systems sequentially
+run_inference.py        convenience wrapper — runs all systems sequentially (--v2 flag for v2b)
 ```
 
 ---
