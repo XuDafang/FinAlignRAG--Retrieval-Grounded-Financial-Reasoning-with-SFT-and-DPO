@@ -7,22 +7,22 @@ An ablation study measuring how much each layer of the stack — retrieval quali
 ## Skills Demonstrated
 
 **Model Fine-Tuning & Alignment**
-- Fine-tuned Qwen2.5-7B on financial QA via QLoRA (4-bit NF4, LoRA rank-16) on a single 12 GB GPU across two training runs (2,109 and 3,439 examples), improving numerical accuracy 0% → 15.3% and refusal accuracy 14.7% → 100% on a 300-question held-out eval set
-- Implemented SFT and DPO training pipelines using HuggingFace TRL, PEFT, and bitsandbytes; diagnosed and documented DPO reward collapse caused by trivially-separable synthetic rejections saturating the objective at step 1 with loss ≈ 0
-- Iterated on SFT output format across two training runs: identified that long evidence fields caused 14% JSON truncation rate; introduced compact chain-of-thought calculation steps (`subtract(206588, 181001)=25587; divide(25587, 181001)=14.1%`) and a 350-char evidence cap, eliminating truncation entirely (100% JSON validity) and reducing inference latency 2.6× (51.7 s → 19.6 s per question)
+- Fine-tuned Qwen2.5-7B on financial QA via QLoRA (4-bit NF4, LoRA rank-16) on a single 12 GB GPU; improved numerical accuracy 0% → 15.3% and refusal accuracy 14.7% → 100% on a 300-question held-out eval set
+- Diagnosed DPO reward collapse from trivially-separable synthetic rejections; loss saturated at step 1, producing a degenerate adapter — documented failure mode and root cause
+- Reduced inference latency 2.6× (51.7 s → 19.6 s) by reformatting SFT targets: compact chain-of-thought steps and a 350-char evidence cap eliminated 14% JSON truncation rate entirely
 
 **Retrieval-Augmented Generation**
-- Built a two-stage RAG pipeline — dense retrieval (BGE-large + FAISS IndexFlatIP) followed by cross-encoder reranking (MS-MARCO MiniLM) — and ran a controlled 5-system ablation isolating the contribution of each component to numerical accuracy (0% → 7% → 15.3%); error analysis identified retrieval failure as the binding constraint (71% of errors), with model conditional accuracy of ~60% when the correct chunk is retrieved
-- Diagnosed and fixed two retrieval corpus bugs: (1) a training/inference distribution mismatch where prose chunks were indexed against a model trained on compressed table texts, dropping accuracy from 15.3% to 3%; (2) a corpus coverage gap where 118 of 177 evaluation source documents were missing from the retrieval index, causing near-zero accuracy on the affected questions
-- Implemented and evaluated BM25+dense hybrid retrieval with RRF fusion; found it degraded accuracy (15.3% → 13.3%) due to 24% cross-company contamination — FinQA questions use identical templates across companies, so BM25 keyword matching finds the right metric from the wrong company; documented as a negative finding and reverted to pure dense retrieval
+- Built a two-stage RAG pipeline (BGE-large FAISS + MS-MARCO cross-encoder reranker); 5-system ablation showed retrieval adds 7 pp and SFT adds 8 pp to numerical accuracy (0% → 15.3%)
+- Diagnosed 71% retrieval failure rate as binding accuracy constraint; model conditional accuracy is ~60% when the correct chunk is retrieved
+- Implemented BM25+dense hybrid retrieval with RRF fusion; identified 24% cross-company contamination as root cause of regression (15.3% → 13.3%) — financial questions share identical templates across companies, defeating keyword matching
 
 **GPU & Systems Debugging**
-- Diagnosed fp16 attention overflow on NVIDIA Pascal (sm_61): K-values reaching 419 over 128-dim heads produce QK^T sums of ~3.7M, exceeding fp16 max (65,504); fixed by setting `torch_dtype=float32` and disabling AMP
-- Resolved CUDA OOM on DPO training by enabling `precompute_ref_log_probs=True`, halving peak memory by caching reference logprobs before the training loop
+- Fixed fp16 attention overflow on NVIDIA Pascal (sm_61): QK^T sums exceed fp16 max at layer 27; resolved with `torch_dtype=float32`
+- Halved DPO peak GPU memory by precomputing reference logprobs before the training loop (`precompute_ref_log_probs=True`)
 
 **Evaluation & Data Engineering**
-- Designed a deterministic eval harness scoring JSON schema validity, numerical accuracy (0.1% tolerance), and refusal accuracy across 5 ablation systems on 300 stratified held-out questions
-- Extracted and resolved multi-step arithmetic programs from FinQA's structured annotation format (handling both single-qa and multi-qa records) to build 3,439 chain-of-thought training pairs from the full train+dev split; applied ticker-stratified splits to prevent company-level leakage
+- Built a deterministic eval harness scoring JSON validity, numerical accuracy (0.1% tolerance), and refusal accuracy across 5 systems on 300 stratified held-out questions
+- Extracted 3,439 chain-of-thought training pairs from FinQA's structured annotation format; applied ticker-stratified splits to prevent company-level leakage
 
 ---
 
