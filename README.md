@@ -38,7 +38,9 @@ Evaluated on 300 held-out questions from FinQA, stratified by company ticker (no
 | `base_simple_rag` | 63.3% | 7.0% | 52.7% | 11.7 s |
 | `base_two_stage_rag` | 68.0% | 6.7% | 53.7% | 11.6 s |
 | `sft_two_stage_rag` (v1) | 97.3% | **15.3%** | 97.3% | 51.7 s |
-| `sft_dpo_two_stage_rag` | — | — | — | — |
+| `sft_dpo_two_stage_rag` ¹ | — | — | — | — |
+
+¹ Not evaluated — DPO adapter collapsed during training (degenerate repetitive output). See Key findings below.
 
 ### SFT iteration: v1 vs v2b
 
