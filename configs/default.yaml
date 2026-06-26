@@ -40,8 +40,8 @@ data:
 retrieval:
   index_type: IndexFlatIP   # FAISS inner-product index
   normalize_l2: true        # L2-normalize doc & query vectors before IP search
-  top_k_dense: 15           # dense candidates retrieved before reranking
-  top_k_rerank: 5           # final chunks returned after cross-encoder rerank
+  top_k_dense: 15           # dense retrieval candidates before cross-encoder reranking
+  top_k_rerank: 5           # final chunks passed to the model (keep prompt within 2048 tokens)
 
 # -----------------------------------------------------------------------------
 # Training (Step 4) — QLoRA SFT + DPO on a single Titan X (12 GB)

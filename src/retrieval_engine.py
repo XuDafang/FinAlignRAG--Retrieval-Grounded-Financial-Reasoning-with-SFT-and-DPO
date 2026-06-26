@@ -187,7 +187,8 @@ class FinancialRetrievalEngine:
         self.index = self._to_gpu_index(cpu_index)
 
         logger.info(
-            "Indexed %d chunks (dim=%d) into GPU IndexFlatIP", len(self._chunks), self._dim
+            "Indexed %d chunks (dim=%d) into GPU IndexFlatIP",
+            len(self._chunks), self._dim,
         )
 
     def query(
@@ -196,40 +197,37 @@ class FinancialRetrievalEngine:
         top_k_dense: int = 15,
         top_k_rerank: int = 5,
     ) -> list[dict[str, Any]]:
-        """Dense-retrieve then cross-encoder-rerank; return <= ``top_k_rerank`` chunks.
+        """Dense retrieval then cross-encoder rerank.
 
-        Each returned dict preserves all original chunk metadata and adds
-        ``dense_score`` (cosine similarity from FAISS) and ``rerank_score``
-        (cross-encoder logit). Results are sorted by ``rerank_score`` descending.
+        Stage 1: retrieve top ``top_k_dense`` candidates via FAISS inner-product
+        (equivalent to cosine similarity over L2-normalized vectors).
 
-        Does not crash if fewer than ``top_k_dense``/``top_k_rerank`` candidates
-        exist; it simply returns however many are available.
+        Stage 2: cross-encoder reranking of the dense candidates.
 
-        Raises
-        ------
-        RuntimeError
-            If called before ``index_chunks()`` / ``load_index()``.
+        Each returned dict preserves all original chunk metadata plus
+        ``dense_score`` (cosine similarity) and ``rerank_score`` (cross-encoder logit).
+        Results are sorted by ``rerank_score`` descending.
         """
         if self.index is None:
             raise RuntimeError("query() called before an index was built/loaded.")
 
-        # --- Stage 1: dense retrieval (query-side L2 normalization) ---
+        n = len(self._chunks)
+        fetch_k = min(top_k_dense, n)
+
         query_vec = _l2_normalize(self._embed([query_str]))
-        k_dense = min(top_k_dense, len(self._chunks))
-        scores, indices = self.index.search(query_vec, k_dense)
+        dense_scores, dense_indices = self.index.search(query_vec, fetch_k)
 
         candidates: list[dict[str, Any]] = []
-        for dense_score, row in zip(scores[0], indices[0]):
-            if row < 0:  # FAISS pads with -1 when fewer results are available
+        for score, idx in zip(dense_scores[0], dense_indices[0]):
+            if idx < 0:
                 continue
-            candidate = dict(self._chunks[row])  # preserve ALL metadata fields
-            candidate["dense_score"] = float(dense_score)
+            candidate = dict(self._chunks[int(idx)])
+            candidate["dense_score"] = float(score)
             candidates.append(candidate)
 
         if not candidates:
             return []
 
-        # --- Stage 2: cross-encoder reranking ---
         pairs = [(query_str, c["text"]) for c in candidates]
         rerank_scores = self.reranker.predict(pairs, show_progress_bar=False)
         for candidate, rerank_score in zip(candidates, rerank_scores):
@@ -278,6 +276,7 @@ class FinancialRetrievalEngine:
 
         cpu_index = faiss.read_index(index_path)
         self.index = self._to_gpu_index(cpu_index)
+
         logger.info("Loaded index (%d chunks) from %s onto GPU", len(self._chunks), path)
 
 
