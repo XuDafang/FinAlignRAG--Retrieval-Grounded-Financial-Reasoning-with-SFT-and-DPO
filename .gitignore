@@ -7,7 +7,7 @@ __pycache__/
 .venv/
 venv/
 env/
-
+.docx
 # ML / training artifacts
 outputs/dpo_adapter/*
 !outputs/dpo_adapter/.gitkeep
