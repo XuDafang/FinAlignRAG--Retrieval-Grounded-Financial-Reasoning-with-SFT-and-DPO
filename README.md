@@ -103,6 +103,77 @@ FinQA data (train.json)
 
 ---
 
+## Data Files
+
+This project does not download or parse PDF files at training or inference time. The FinQA data has already been extracted into JSON: `filename` keeps the original filing-page identifier, while `pre_text`, `post_text`, `table`, and `qa` hold the usable text, table, and answer annotations.
+
+### Source FinQA JSON
+
+| File | What it contains | Where it is used |
+|---|---|---|
+| `data/train.json` | Original FinQA training split. JSON array of filing-page records with text, tables, and gold QA annotations. This checkout has 3,037 page records and 3,965 QA entries. | Read by `convert_finqa.py`, `prepare_sft.py`, and `src/build_sft_data.py` to build retrieval documents and SFT examples. |
+| `data/dev.json` | Original FinQA dev split with the same structure as `train.json`. This checkout has 421 page records and 542 QA entries. | Used for held-out/evaluation questions and, in v2, to add gold contexts to the retrieval corpus while excluding held-out questions from SFT training. |
+| `data/test_private.json` | Private FinQA test pages. It has page text and tables, but no public gold answer fields. | Kept for completeness; the reported ablation uses the held-out dev-derived question file instead. |
+| `data/train_turn.json`, `data/dev_turn.json`, `data/test_turn_private.json` | Turn-level FinQA variants. Each row is a single dialogue turn with the same page/table fields; private test turns omit gold answers. | Not used by the main ablation pipeline in this repo. |
+
+A typical source record looks like:
+
+```json
+{
+  "filename": "JKHY/2009/page_28.pdf",
+  "pre_text": ["paragraph before the table", "..."],
+  "table": [
+    ["2008", "year ended june 30 2009 2008", "year ended june 30 2009"],
+    ["net income", "$ 103102", "$ 104222"]
+  ],
+  "table_ori": [
+    ["", "Year ended June 30, 2009"],
+    ["Net income", "$103,102", "$104,222"]
+  ],
+  "post_text": ["paragraph after the table", "..."],
+  "qa": {
+    "question": "what was the percentage change ...",
+    "answer": "14.1%",
+    "program": "subtract(206588, 181001), divide(#0, 181001)",
+    "steps": [
+      {"op": "minus2-1", "arg1": "206588", "arg2": "181001", "res": "25587"}
+    ],
+    "gold_inds": {
+      "table_6": "table-derived evidence sentence ..."
+    }
+  }
+}
+```
+
+`table` and `table_ori` are both arrays of rows, where each row is an array of cell strings. `table` is normalized for modeling; `table_ori` is closer to the original table text. The model usually sees flattened evidence text from `gold_inds`, not the raw nested table object.
+
+### Derived Training and Retrieval Files
+
+| File | Structure | Producer | Consumer |
+|---|---|---|---|
+| `data/raw/documents.jsonl` | One JSON object per line: `ticker`, `source_doc_id`, `text`. The text is flattened filing-page context from FinQA `pre_text` and `post_text`. | `convert_finqa.py` | `src.data_pipeline` |
+| `data/processed/chunks.jsonl` | One chunk per line: `chunk_id`, `text`, `ticker`, `source_doc_id`, `chunk_index`. | `src.data_pipeline` | `src.retrieval_engine` / `src.rag_pipeline` |
+| `data/processed/train.jsonl`, `data/processed/val.jsonl`, `data/processed/test.jsonl` | Same chunk schema as `chunks.jsonl`, split by ticker so the same company does not appear in multiple splits. | `src.data_pipeline` | Split/leakage inspection and retrieval experiments. |
+| `data/processed/questions.jsonl` | Held-out evaluation questions: `id`, `question`, `ground_truth_answer`, `should_refuse`; optional `gold_chunk_ids` or `relevant_chunk_ids` enable retrieval recall scoring. | Evaluation-data preparation step | `run_inference.py`, `src.rag_pipeline`, `src.eval_harness` |
+| `data/processed/sft_chunks.jsonl` | v1 retrieval corpus aligned to SFT training context. Same chunk schema as above. | SFT data preparation | `run_inference.py` in default v1 mode |
+| `data/processed/sft_chunks_v2.jsonl` | v2 retrieval corpus built from FinQA gold evidence snippets; README results report 4,878 chunks. | `src.build_sft_data` | `run_inference.py --v2` |
+| `data/sft/train.jsonl` | v1 SFT rows: `ticker`, `source_doc_id`, `text`, `question`, `target_json`. `target_json` is the answer JSON string the model learns to emit. | `prepare_sft.py` | `src.alignment --mode sft` |
+| `data/sft/val.jsonl` | Dev split converted to the same SFT row schema as `train.jsonl`. | `prepare_sft.py` | Validation/inspection; not required by the main training command. |
+| `data/sft/train_v2.jsonl` | v2 SFT rows with compact chain-of-thought calculations and capped evidence; README results report 3,439 examples. | `src.build_sft_data` | `src.alignment --mode sft --config configs/v2.yaml` |
+| `data/dpo/train.jsonl` | Preference rows: `text`, `question`, `chosen`, `rejected`. `chosen` is the correct SFT target JSON; `rejected` is a synthetic plausible wrong answer. | `src.gen_dpo_data` | `src.alignment --mode dpo` |
+
+The generated files under `data/processed/`, `data/sft/`, and `data/dpo/` may need to be rebuilt locally; the repository keeps placeholder `.gitkeep` files for empty generated directories.
+
+### Prediction and Evaluation Files
+
+| File | Structure | Where it is used |
+|---|---|---|
+| `outputs/predictions/<system>.jsonl` | One prediction per question: `id`, `system_name`, `question`, `ground_truth_answer`, `predicted_json`, `retrieved_chunks`, `should_refuse`, `latency_ms`. | Written by `run_inference.py`; scored by `src.eval_harness`. |
+| `outputs/predictions/v2/<system>.jsonl` | Same prediction schema, but produced with the v2 corpus/adapters. | Written by `run_inference.py --v2`; scored by `src.eval_harness`. |
+| `outputs/reports/*.json` | Aggregate metrics such as JSON validity, numerical accuracy, refusal accuracy, retrieval recall, and latency. | Written by `src.eval_harness`. |
+
+---
+
 ## Hardware & Training Details
 
 **Hardware:** Single NVIDIA Titan X (Pascal, sm_61, 12 GB VRAM)
@@ -245,9 +316,15 @@ configs/
   default.yaml          hyperparameters for v1 (model, retrieval, training)
   v2.yaml               overrides for v2b (1500 steps, v2 adapter/corpus paths)
 data/
-  processed/            chunks.jsonl, sft_chunks.jsonl, sft_chunks_v2.jsonl, questions.jsonl
-  sft/                  train.jsonl (v1, 2109 ex), train_v2.jsonl (v2b, 3439 ex), val.jsonl
-  dpo/                  train.jsonl (chosen/rejected pairs)
+  train.json            source FinQA train split (text, tables, QA annotations)
+  dev.json              source FinQA dev split (held-out/eval source)
+  test_private.json     private FinQA test pages without public gold answers
+  *_turn.json           turn-level FinQA variants
+  raw/
+    documents.jsonl     flattened filing-page text: ticker, source_doc_id, text
+  processed/            generated chunks, ticker splits, eval questions, SFT retrieval corpora
+  sft/                  generated SFT JSONL rows (v1/v2)
+  dpo/                  generated DPO chosen/rejected pairs
 outputs/
   sft_adapter/          v1 SFT LoRA weights (tracked via Git LFS)
   sft_adapter_v2b/      v2b SFT LoRA weights (compact CoT, capped evidence)
