@@ -9,8 +9,56 @@ stages:
   teach the model to prefer a correct response over a plausible incorrect one.
 
 The project uses FinQA financial-report questions and a retrieval-augmented
-generation (RAG) pipeline. There is one supported data path, one configuration,
-and one set of output locations.
+generation (RAG) pipeline. It is an educational alignment experiment, not a
+general system for reading arbitrary PDFs or performing complete financial
+analysis.
+
+## What the Project Does
+
+Consider one example from FinQA:
+
+```text
+Retrieved context:
+Net cash from operating activities was 206,588 in 2009 and 181,001 in 2008.
+
+Question:
+What was the percentage change from 2008 to 2009?
+
+Calculation:
+(206588 - 181001) / 181001 = 14.1%
+```
+
+The model should return a grounded, machine-readable response:
+
+```json
+{
+  "answer": "14.1%",
+  "calculation": "subtract(206588, 181001)=25587; divide(25587, 181001)=14.1%",
+  "evidence": "Net cash from operating activities was 206,588 in 2009 and 181,001 in 2008.",
+  "confidence": 0.95,
+  "insufficient_context": false
+}
+```
+
+Each part of the project has a different job:
+
+- **RAG supplies the facts.** It retrieves the relevant table or text evidence
+  containing the financial figures.
+- **SFT teaches the task.** It shows the model thousands of
+  `context + question -> correct JSON response` examples so the model learns
+  which numbers to use, how to calculate the answer, and how to follow the
+  output schema.
+- **DPO teaches preferences.** It presents a correct response alongside a
+  plausible but incorrect response and trains the model to prefer the correct
+  one.
+
+SFT is the core training stage. DPO is included as an optional learning
+experiment; it is not automatically better, especially when rejected responses
+are synthetic or too easy to distinguish. A practical version of this system
+can reasonably stop after SFT.
+
+There is one supported data path, one configuration, and one set of output
+locations.
 
 ## Pipeline
 
