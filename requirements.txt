@@ -20,7 +20,7 @@ peft>=0.13
 # alignment.py targets the TRL ~0.11-0.12 API (SFTConfig/DPOConfig with
 # dataset_text_field/max_seq_length/beta). Newer TRL renames some of these.
 trl>=0.11,<0.13
-bitsandbytes>=0.43        # still used by rag_pipeline.py for 4-bit inference
+bitsandbytes>=0.43
 
 # --- Retrieval (dense embeddings + cross-encoder reranking) ---
 sentence-transformers>=3.0
@@ -32,17 +32,9 @@ sentence-transformers>=3.0
 faiss-gpu>=1.7 ; platform_system != "Windows"
 faiss-cpu>=1.8 ; platform_system == "Windows"
 
-# --- Tokenizer / model support deps ---
-sentencepiece>=0.2
-protobuf>=4.25
-einops>=0.8
-
-# --- Data / numerics / config ---
+# --- Numerics and config ---
 numpy>=1.26,<2.0
-pandas>=2.0
 pyyaml>=6.0
-scikit-learn>=1.3
-tqdm>=4.66
 
-# --- Testing (pytest suites are required by the playbook steps) ---
+# --- Testing ---
 pytest>=8.0

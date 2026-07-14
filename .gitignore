@@ -8,9 +8,6 @@ __pycache__/
 venv/
 env/
 
-# Local documents
-*.docx
-
 # Generated training and inference artifacts
 outputs/sft_adapter/*
 outputs/dpo_adapter/*
@@ -78,7 +75,3 @@ checkpoint-*/
 Thumbs.db
 .idea/
 .vscode/
-
-# Document-analysis scratch directories
-unpacked_arch/
-unpacked_playbook/

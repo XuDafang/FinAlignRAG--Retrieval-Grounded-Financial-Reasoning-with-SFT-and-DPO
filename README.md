@@ -119,12 +119,8 @@ tables, questions, and annotations stored in JSON.
 |---|---|---|
 | `data/train.json` | 3,037 filing-page records and 3,965 QA annotations | Source for SFT examples and training-side retrieval evidence |
 | `data/dev.json` | 421 filing-page records and 542 QA annotations | Held-out source for evaluation questions and retrieval evidence |
-| `data/test_private.json` | 434 private-test records without public gold QA labels | Not used by the default learning pipeline |
-| `data/train_turn.json` | 11,104 conversational training turns | Optional turn-level experiments; not used by default |
-| `data/dev_turn.json` | 1,490 conversational development turns | Optional turn-level experiments; not used by default |
-| `data/test_turn_private.json` | 1,521 private conversational test turns | Not used by the default learning pipeline |
 
-The JSON files are kept local and ignored by Git because they are large.
+These two JSON files are kept local and ignored by Git because they are large.
 
 ### Record structure
 
@@ -346,7 +342,6 @@ configs/
 data/
   train.json               local FinQA training split
   dev.json                 local held-out development split
-  *_turn.json              optional conversational variants
   processed/               generated chunks and evaluation questions
   sft/                     generated supervised examples
   dpo/                     generated preference pairs
