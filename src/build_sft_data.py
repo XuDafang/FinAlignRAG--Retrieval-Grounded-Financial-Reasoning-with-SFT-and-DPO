@@ -1,27 +1,24 @@
-"""Build CoT-enriched SFT training data from the full FinQA dataset.
+"""Build the SFT dataset, retrieval corpus, and evaluation questions.
 
-Reads data/train.json + data/dev.json (3458 raw examples, including multi-question
-records with qa_0/qa_1 keys), produces ~4100 training pairs after:
-  - deduplicating by question
-  - excluding held-out val questions (data/processed/questions.jsonl)
-  - dropping examples without program steps or gold evidence
+The FinQA training split supplies supervised examples. The development split
+stays held out and supplies evaluation questions. Gold evidence from both
+splits is included in the retrieval corpus so development questions have
+retrievable context without leaking their answers into SFT training.
 
-Chain-of-thought improvement over v1:
-  v1 calculation:  "(206588 - 181001) = 25587; ((206588 - 181001) / 181001) = 14.1%"
-  v2 calculation:  "Step 1: subtract(206588, 181001) = 25587; Step 2: divide(25587, 181001) = 14.1%"
+FinQA calculation steps are converted to a compact trace such as::
 
-Steps are taken directly from qa.steps and #N back-references are resolved to
-the actual intermediate result so the model sees concrete numbers at every step.
+    subtract(206588, 181001)=25587; divide(25587, 181001)=14.1%
+
+``#N`` back-references are resolved to intermediate results so every operation
+contains concrete values.
 
 Outputs:
-  data/sft/train_v2.jsonl          SFT training pairs
-  data/processed/sft_chunks_v2.jsonl   retrieval corpus for new FAISS index
+  data/sft/train.jsonl
+  data/processed/sft_chunks.jsonl
+  data/processed/questions.jsonl
 
 Usage:
   python -m src.build_sft_data
-  python -m src.build_sft_data --out_sft data/sft/train_v2.jsonl \
-      --out_chunks data/processed/sft_chunks_v2.jsonl \
-      --val_questions data/processed/questions.jsonl
 """
 
 from __future__ import annotations
@@ -31,12 +28,10 @@ import json
 import os
 import re
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 
-# ---------------------------------------------------------------------------
-# FinQA op-code → human-readable name
-# ---------------------------------------------------------------------------
 _OP_MAP = {
     "minus": "subtract",
     "subtract": "subtract",
@@ -51,22 +46,17 @@ _OP_MAP = {
     "table_average": "table_average",
 }
 
+_EVIDENCE_MAX_CHARS = 350
+
 
 def _op_name(op: str) -> str:
-    """Map a FinQA op string like 'minus2-1' → 'subtract'."""
+    """Map a FinQA op string such as ``minus2-1`` to ``subtract``."""
     key = re.sub(r"[\d\-]+$", "", op.lower())
     return _OP_MAP.get(key, key or op)
 
 
-_EVIDENCE_MAX_CHARS = 350  # cap training-target evidence to prevent inference truncation
-
-
-def build_cot(steps: list[dict[str, Any]]) -> str:
-    """Build a compact semicolon-separated CoT string from FinQA qa.steps.
-
-    Format: "subtract(206588, 181001)=25587; divide(25587, 181001)=14.1%"
-    Back-references (#N) are resolved to actual intermediate results.
-    """
+def build_calculation_trace(steps: list[dict[str, Any]]) -> str:
+    """Build a compact calculation trace and resolve intermediate references."""
     results: list[str] = []
     parts: list[str] = []
 
@@ -74,204 +64,225 @@ def build_cot(steps: list[dict[str, Any]]) -> str:
         op = _op_name(step.get("op", ""))
         arg1 = str(step.get("arg1", ""))
         arg2 = str(step.get("arg2", ""))
-        res = str(step.get("res", ""))
+        result = str(step.get("res", ""))
 
         def resolve(arg: str) -> str:
-            m = re.match(r"^#(\d+)$", arg)
-            if m:
-                idx = int(m.group(1))
-                return results[idx] if idx < len(results) else arg
+            match = re.match(r"^#(\d+)$", arg)
+            if match:
+                index = int(match.group(1))
+                return results[index] if index < len(results) else arg
             return arg
 
-        a1 = resolve(arg1)
-        a2 = resolve(arg2)
-        results.append(res)
+        resolved_arg1 = resolve(arg1)
+        resolved_arg2 = resolve(arg2)
+        results.append(result)
 
-        if a2:
-            parts.append(f"{op}({a1}, {a2})={res}")
+        if resolved_arg2:
+            parts.append(f"{op}({resolved_arg1}, {resolved_arg2})={result}")
         else:
-            parts.append(f"{op}({a1})={res}")
+            parts.append(f"{op}({resolved_arg1})={result}")
 
     return "; ".join(parts)
 
 
 def _cap_evidence(text: str, max_chars: int = _EVIDENCE_MAX_CHARS) -> str:
-    """Truncate evidence at a statement boundary to keep training targets short."""
+    """Truncate evidence at a statement boundary when possible."""
     if len(text) <= max_chars:
         return text
-    # Prefer cutting at the last ";" before the limit
     cut = text.rfind(";", 0, max_chars)
     if cut > max_chars // 2:
         return text[: cut + 1].strip()
     return text[:max_chars].strip()
 
 
-# ---------------------------------------------------------------------------
-# FinQA record helpers
-# ---------------------------------------------------------------------------
 def _filename_to_ids(filename: str) -> tuple[str, str]:
-    """'JKHY/2009/page_28.pdf' → ('JKHY', 'JKHY_2009_page_28')."""
-    base = filename.replace(".pdf", "").replace("/", "_")
+    """Convert a FinQA filename into ticker and source-document identifiers."""
+    source_doc_id = filename.replace(".pdf", "").replace("/", "_")
     ticker = filename.split("/")[0]
-    return ticker, base
+    return ticker, source_doc_id
 
 
-def _get_qa_entries(ex: dict[str, Any]) -> list[dict[str, Any]]:
-    """Handle both single-qa {'qa': {...}} and multi-qa {'qa_0': {...}, 'qa_1': {...}}."""
-    if "qa" in ex:
-        return [ex["qa"]]
-    return [ex[k] for k in sorted(ex.keys()) if k.startswith("qa_")]
+def _get_qa_entries(example: dict[str, Any]) -> list[dict[str, Any]]:
+    """Read both single-QA and multi-QA FinQA records."""
+    if "qa" in example:
+        return [example["qa"]]
+    return [
+        example[key]
+        for key in sorted(example)
+        if key.startswith("qa_")
+    ]
 
 
-def _process_qa(
-    ex: dict[str, Any],
+def _load_records(paths: list[str]) -> Iterator[dict[str, Any]]:
+    """Yield records from one or more FinQA JSON files."""
+    for path in paths:
+        with open(path, encoding="utf-8") as file:
+            yield from json.load(file)
+
+
+def _make_sft_record(
+    example: dict[str, Any],
     qa: dict[str, Any],
-    val_questions: set[str],
 ) -> dict[str, Any] | None:
-    """Convert one FinQA (example, qa) pair to an SFT record, or None to skip."""
+    """Convert one FinQA question into a supervised training record."""
     question = qa.get("question", "").strip()
-    if not question or question.lower() in val_questions:
-        return None
-
     steps = qa.get("steps") or []
-    if not steps:
+    gold_evidence = qa.get("gold_inds") or {}
+    answer = str(qa.get("answer") or qa.get("exe_ans", "")).strip()
+    if not question or not steps or not gold_evidence or not answer:
         return None
 
-    gold_inds = qa.get("gold_inds") or {}
-    if not gold_inds:
+    context = " ".join(gold_evidence.values()).strip()
+    if not context:
         return None
 
-    text = " ".join(gold_inds.values()).strip()
-    if not text:
-        return None
-
-    ticker, source_doc_id = _filename_to_ids(ex["filename"])
-    cot = build_cot(steps)
-    answer = qa.get("answer", "").strip()
-
+    ticker, source_doc_id = _filename_to_ids(example["filename"])
     target = {
         "answer": answer,
-        "calculation": cot,
-        "evidence": _cap_evidence(text),
+        "calculation": build_calculation_trace(steps),
+        "evidence": _cap_evidence(context),
         "confidence": 0.95,
         "insufficient_context": False,
     }
-
     return {
         "ticker": ticker,
         "source_doc_id": source_doc_id,
-        "text": text,
+        "text": context,
         "question": question,
         "target_json": json.dumps(target, ensure_ascii=False),
     }
 
 
-# ---------------------------------------------------------------------------
-# Main pipeline
-# ---------------------------------------------------------------------------
 def _add_chunk(
     chunks: dict[tuple[str, str], dict[str, Any]],
     chunk_counter: defaultdict[str, int],
     ticker: str,
     source_doc_id: str,
     text: str,
-) -> None:
-    ck = (source_doc_id, text)
-    if ck not in chunks:
-        idx = chunk_counter[source_doc_id]
+) -> str:
+    """Add a unique evidence chunk and return its stable identifier."""
+    key = (source_doc_id, text)
+    if key not in chunks:
+        index = chunk_counter[source_doc_id]
         chunk_counter[source_doc_id] += 1
-        chunks[ck] = {
-            "chunk_id": f"{source_doc_id}_{idx:03d}",
+        chunks[key] = {
+            "chunk_id": f"{source_doc_id}_{index:03d}",
             "text": text,
             "ticker": ticker,
             "source_doc_id": source_doc_id,
-            "chunk_index": idx,
+            "chunk_index": index,
         }
+    return chunks[key]["chunk_id"]
+
+
+def _write_jsonl(path: str, records: Iterable[dict[str, Any]]) -> None:
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as file:
+        for record in records:
+            file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def build(
-    finqa_files: list[str],
-    val_questions_path: str,
+    train_files: list[str],
+    eval_files: list[str],
     out_sft: str,
     out_chunks: str,
+    out_questions: str,
 ) -> None:
-    val_questions: set[str] = set()
-    with open(val_questions_path, encoding="utf-8") as fh:
-        for line in fh:
-            d = json.loads(line)
-            val_questions.add(d["question"].strip().lower())
-
+    """Build all generated data required by SFT training and evaluation."""
     sft_records: list[dict[str, Any]] = []
-    seen_questions: set[str] = set()
+    evaluation_questions: list[dict[str, Any]] = []
     chunks: dict[tuple[str, str], dict[str, Any]] = {}
     chunk_counter: defaultdict[str, int] = defaultdict(int)
+    seen_training_examples: set[tuple[str, str]] = set()
+    seen_evaluation_examples: set[tuple[str, str]] = set()
 
-    for fname in finqa_files:
-        with open(fname, encoding="utf-8") as fh:
-            data = json.load(fh)
+    for example in _load_records(train_files):
+        ticker, source_doc_id = _filename_to_ids(example["filename"])
+        for qa in _get_qa_entries(example):
+            for text in (qa.get("gold_inds") or {}).values():
+                if text:
+                    _add_chunk(chunks, chunk_counter, ticker, source_doc_id, text)
 
-        for ex in data:
-            ticker, source_doc_id = _filename_to_ids(ex["filename"])
-            for qa in _get_qa_entries(ex):
-                gold_inds = qa.get("gold_inds") or {}
-                q_key = qa.get("question", "").strip().lower()
+            record = _make_sft_record(example, qa)
+            if record is None:
+                continue
 
-                # Always add gold_inds to retrieval corpus — even for val questions.
-                # Val question contexts must be retrievable at eval time.
-                for text in gold_inds.values():
-                    if text:
-                        _add_chunk(chunks, chunk_counter, ticker, source_doc_id, text)
-
-                # Only add to SFT training pairs if not a val question
-                if not q_key or q_key in val_questions:
-                    continue
-
-                record = _process_qa(ex, qa, val_questions)
-                if record is None:
-                    continue
-
-                if q_key in seen_questions:
-                    continue
-                seen_questions.add(q_key)
-
+            key = (source_doc_id, record["question"].lower())
+            if key not in seen_training_examples:
+                seen_training_examples.add(key)
                 sft_records.append(record)
 
-    os.makedirs(os.path.dirname(out_sft) or ".", exist_ok=True)
-    os.makedirs(os.path.dirname(out_chunks) or ".", exist_ok=True)
+    for example in _load_records(eval_files):
+        ticker, source_doc_id = _filename_to_ids(example["filename"])
+        for qa_index, qa in enumerate(_get_qa_entries(example)):
+            question = qa.get("question", "").strip()
+            answer = str(qa.get("answer") or qa.get("exe_ans", "")).strip()
+            if not question or not answer:
+                continue
 
-    with open(out_sft, "w", encoding="utf-8") as fh:
-        for rec in sft_records:
-            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            key = (source_doc_id, question.lower())
+            if key in seen_evaluation_examples:
+                continue
+            seen_evaluation_examples.add(key)
 
-    with open(out_chunks, "w", encoding="utf-8") as fh:
-        for chunk in chunks.values():
-            fh.write(json.dumps(chunk, ensure_ascii=False) + "\n")
+            relevant_chunk_ids: list[str] = []
+            for text in (qa.get("gold_inds") or {}).values():
+                if not text:
+                    continue
+                chunk_id = _add_chunk(
+                    chunks, chunk_counter, ticker, source_doc_id, text
+                )
+                if chunk_id not in relevant_chunk_ids:
+                    relevant_chunk_ids.append(chunk_id)
 
-    print(f"SFT training pairs : {len(sft_records):,}  →  {out_sft}")
-    print(f"Retrieval corpus   : {len(chunks):,} chunks  →  {out_chunks}")
-    print(f"Val questions excluded from training: {len(val_questions)}")
+            evaluation_questions.append({
+                "id": f"{source_doc_id}_q{qa_index:02d}",
+                "ticker": ticker,
+                "source_doc_id": source_doc_id,
+                "question": question,
+                "ground_truth_answer": answer,
+                "should_refuse": False,
+                "relevant_chunk_ids": relevant_chunk_ids,
+            })
+
+    _write_jsonl(out_sft, sft_records)
+    _write_jsonl(out_chunks, chunks.values())
+    _write_jsonl(out_questions, evaluation_questions)
+
+    print(f"SFT training pairs  : {len(sft_records):,} -> {out_sft}")
+    print(f"Retrieval chunks    : {len(chunks):,} -> {out_chunks}")
+    print(f"Evaluation questions: {len(evaluation_questions):,} -> {out_questions}")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m src.build_sft_data",
-        description="Build CoT-enriched SFT data from full FinQA dataset.",
+        description="Build SFT rows, retrieval chunks, and held-out questions.",
     )
     parser.add_argument(
-        "--finqa_files",
+        "--train_files",
         nargs="+",
-        default=["data/train.json", "data/dev.json"],
-        help="FinQA JSON files to process (default: train + dev).",
+        default=["data/train.json"],
+        help="FinQA files used for SFT training (default: data/train.json).",
     )
-    parser.add_argument("--out_sft", default="data/sft/train_v2.jsonl")
-    parser.add_argument("--out_chunks", default="data/processed/sft_chunks_v2.jsonl")
     parser.add_argument(
-        "--val_questions",
-        default="data/processed/questions.jsonl",
-        help="JSONL of held-out eval questions to exclude from training.",
+        "--eval_files",
+        nargs="+",
+        default=["data/dev.json"],
+        help="Held-out FinQA files used for evaluation (default: data/dev.json).",
     )
+    parser.add_argument("--out_sft", default="data/sft/train.jsonl")
+    parser.add_argument("--out_chunks", default="data/processed/sft_chunks.jsonl")
+    parser.add_argument("--out_questions", default="data/processed/questions.jsonl")
     args = parser.parse_args(argv)
-    build(args.finqa_files, args.val_questions, args.out_sft, args.out_chunks)
+    build(
+        args.train_files,
+        args.eval_files,
+        args.out_sft,
+        args.out_chunks,
+        args.out_questions,
+    )
     return 0
 
 

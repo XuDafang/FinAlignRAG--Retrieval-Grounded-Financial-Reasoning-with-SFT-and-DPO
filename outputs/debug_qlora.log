@@ -1,9 +1,0 @@
-DEBUG conda.gateways.logging:set_log_level(223): log_level set to 10
-DEBUG conda.gateways.subprocess:subprocess_call(97): executing>> /usr/bin/bash /tmp/tmpt5dej2j5
-2026-06-17 03:58:16,215 | INFO | finalignrag.alignment | DEBUG mode enabled: max_steps=5
-`low_cpu_mem_usage` was None, now default to True since model is quantized.
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:08<00:26,  8.98s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:16<00:15,  7.96s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:23<00:07,  7.68s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:29<00:00,  6.99s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:29<00:00,  7.38s/it]
-max_steps is given, it will override any value given in num_train_epochs
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:54<03:36, 54.07s/it] 40%|████      | 2/5 [01:57<02:58, 59.50s/it] 60%|██████    | 3/5 [02:53<01:55, 57.96s/it] 80%|████████  | 4/5 [03:54<00:59, 59.27s/it]100%|██████████| 5/5 [04:54<00:00, 59.29s/it]                                             100%|██████████| 5/5 [04:54<00:00, 59.29s/it]100%|██████████| 5/5 [04:54<00:00, 58.82s/it]
-2026-06-17 04:03:56,706 | INFO | finalignrag.alignment | Saved SFT adapter to outputs/sft_adapter
-{'train_runtime': 294.1244, 'train_samples_per_second': 0.272, 'train_steps_per_second': 0.017, 'train_loss': 0.0, 'epoch': 0.04}

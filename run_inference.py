@@ -10,7 +10,6 @@ Systems (in order):
 Usage:
   CUDA_VISIBLE_DEVICES=0 python run_inference.py
   CUDA_VISIBLE_DEVICES=0 python run_inference.py --systems sft_two_stage_rag
-  CUDA_VISIBLE_DEVICES=0 python run_inference.py --v2   # v2 corpus + adapter
 """
 
 from __future__ import annotations
@@ -36,23 +35,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("run_inference")
 
-CONFIG       = "configs/default.yaml"
-CONFIG_V2    = "configs/v2.yaml"
-
-# v1 paths (original training run)
-CHUNKS_V1    = "data/processed/sft_chunks.jsonl"
-INDEX_DIR_V1 = "outputs/sft_faiss_index"
-SFT_ADAPTER_V1 = "outputs/sft_adapter"
-DPO_ADAPTER_V1 = "outputs/dpo_adapter"
-
-# v2 paths (full FinQA + CoT retraining)
-CHUNKS_V2    = "data/processed/sft_chunks_v2.jsonl"
-INDEX_DIR_V2 = "outputs/sft_faiss_index_v2"
-SFT_ADAPTER_V2 = "outputs/sft_adapter_v2b"
-DPO_ADAPTER_V2 = "outputs/dpo_adapter_v2b"
-
-QUESTIONS    = "data/processed/questions.jsonl"
-PREDICTIONS  = "outputs/predictions"
+CONFIG = "configs/default.yaml"
+CHUNKS = "data/processed/sft_chunks.jsonl"
+INDEX_DIR = "outputs/sft_faiss_index"
+SFT_ADAPTER = "outputs/sft_adapter"
+DPO_ADAPTER = "outputs/dpo_adapter"
+QUESTIONS = "data/processed/questions.jsonl"
+PREDICTIONS = "outputs/predictions"
 
 SYSTEM_ORDER = [
     "base_no_rag",
@@ -133,28 +122,14 @@ def main() -> None:
         default=SYSTEM_ORDER,
         help="Subset of systems to run (default: all five in order).",
     )
-    parser.add_argument(
-        "--v2",
-        action="store_true",
-        help="Use v2 corpus, index, and adapters (full FinQA + CoT retraining).",
-    )
     args = parser.parse_args()
 
-    if args.v2:
-        config = _load_config(CONFIG_V2)
-        chunks_path = CHUNKS_V2
-        index_dir   = INDEX_DIR_V2
-        sft_adapter = SFT_ADAPTER_V2
-        dpo_adapter = DPO_ADAPTER_V2
-        predictions_dir = os.path.join(PREDICTIONS, "v2")
-        logger.info("Running in v2 mode (full FinQA + CoT corpus)")
-    else:
-        config = _load_config(CONFIG)
-        chunks_path = CHUNKS_V1
-        index_dir   = INDEX_DIR_V1
-        sft_adapter = SFT_ADAPTER_V1
-        dpo_adapter = DPO_ADAPTER_V1
-        predictions_dir = PREDICTIONS
+    config = _load_config(CONFIG)
+    chunks_path = CHUNKS
+    index_dir = INDEX_DIR
+    sft_adapter = SFT_ADAPTER
+    dpo_adapter = DPO_ADAPTER
+    predictions_dir = PREDICTIONS
 
     index_built = os.path.exists(index_dir)
 

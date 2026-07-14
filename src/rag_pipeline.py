@@ -15,10 +15,10 @@ SFT/DPO training data, enabling apples-to-apples scoring by eval_harness.py.
 
 HARDWARE TARGET — NVIDIA Titan X (Pascal, sm_61, 12 GB VRAM)
 -------------------------------------------------------------
-Same constraints as alignment.py: 4-bit NF4, fp16, eager attention (no
+Same constraints as alignment.py: 4-bit NF4, float32 activations, eager attention (no
 FlashAttention), CUDA required. RAG paths use GPU FAISS (retrieval_engine.py).
 Do NOT call merge_and_unload() on a 4-bit quantized PEFT model — the adapter
-layers run in fp16 alongside the frozen quantized base.
+layers run alongside the frozen quantized base.
 
 Public API
 ----------
@@ -34,7 +34,7 @@ CLI
 ``python -m src.rag_pipeline \\
     --system base_two_stage_rag \\
     --config configs/default.yaml \\
-    --chunks data/processed/chunks.jsonl \\
+    --chunks data/processed/sft_chunks.jsonl \\
     --questions data/processed/test.jsonl \\
     --output outputs/predictions.jsonl``
 
@@ -150,11 +150,11 @@ def _load_model(
     model_name: str,
     adapter_path: str | None,
 ) -> AutoModelForCausalLM:
-    """Load base model (4-bit NF4, fp16, eager attn) and optionally a PEFT adapter.
+    """Load a 4-bit NF4 base model and optionally a PEFT adapter.
 
     Do NOT call merge_and_unload(): bitsandbytes 4-bit quantized weights cannot
-    be merged with LoRA weights in-place. The adapter runs in fp16 alongside the
-    frozen quantized base, which is both correct and memory-efficient.
+    be merged with LoRA weights in-place. The adapter runs alongside the frozen
+    quantized base, which is both correct and memory-efficient.
     """
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
@@ -470,6 +470,11 @@ class RAGPipeline:
                 ground_truth_answer=str(rec.get("ground_truth_answer", "")),
                 should_refuse=bool(rec.get("should_refuse", False)),
             )
+            relevant_chunk_ids = (
+                rec.get("relevant_chunk_ids") or rec.get("gold_chunk_ids")
+            )
+            if relevant_chunk_ids is not None:
+                pred["relevant_chunk_ids"] = relevant_chunk_ids
             predictions.append(pred)
 
             if (i + 1) % 10 == 0:
@@ -542,7 +547,7 @@ def main(argv: list[str] | None = None) -> int:
         "--chunks",
         default=None,
         help=(
-            "Chunks JSONL (e.g. data/processed/chunks.jsonl) to build the "
+            "Chunks JSONL (e.g. data/processed/sft_chunks.jsonl) to build the "
             "retrieval index from. Required for RAG systems unless --index-dir is set."
         ),
     )

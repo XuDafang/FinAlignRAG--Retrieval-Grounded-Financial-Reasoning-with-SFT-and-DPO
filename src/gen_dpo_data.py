@@ -238,10 +238,11 @@ def generate_dpo_pairs(
             }, ensure_ascii=False) + "\n")
             written += 1
 
-    print(f"Wrote {written} DPO pairs → {out_path}")
+    print(f"Wrote {written} DPO pairs -> {out_path}")
     print("Strategy distribution:")
     for name, count in sorted(strategy_counts.items(), key=lambda x: -x[1]):
-        print(f"  {name}: {count} ({100*count/written:.1f}%)")
+        percentage = 100 * count / written if written else 0.0
+        print(f"  {name}: {count} ({percentage:.1f}%)")
     return written
 
 

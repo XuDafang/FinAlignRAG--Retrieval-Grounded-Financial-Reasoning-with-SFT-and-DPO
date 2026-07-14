@@ -1,305 +1,0 @@
-2026-06-20 05:01:42,648 | INFO | run_inference | ============================================================
-2026-06-20 05:01:42,648 | INFO | run_inference | Running system: base_no_rag
-2026-06-20 05:01:42,648 | INFO | run_inference | ============================================================
-2026-06-20 05:01:42,672 | INFO | finalignrag.rag_pipeline | Loading tokenizer: Qwen/Qwen2.5-7B-Instruct
-2026-06-20 05:01:43,172 | INFO | finalignrag.rag_pipeline | Loading model [base_no_rag] adapter=None
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:07<00:21,  7.14s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:13<00:13,  6.96s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:20<00:06,  6.92s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:27<00:00,  6.69s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:27<00:00,  6.80s/it]
-2026-06-20 05:02:13,193 | INFO | run_inference | No retrieval for base_no_rag
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:590: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:595: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
-  warnings.warn(
-2026-06-20 05:03:32,966 | INFO | finalignrag.rag_pipeline | Processed 10 / 300
-2026-06-20 05:04:49,231 | INFO | finalignrag.rag_pipeline | Processed 20 / 300
-2026-06-20 05:06:14,688 | INFO | finalignrag.rag_pipeline | Processed 30 / 300
-2026-06-20 05:07:40,395 | INFO | finalignrag.rag_pipeline | Processed 40 / 300
-2026-06-20 05:09:00,502 | INFO | finalignrag.rag_pipeline | Processed 50 / 300
-2026-06-20 05:10:28,234 | INFO | finalignrag.rag_pipeline | Processed 60 / 300
-2026-06-20 05:11:42,037 | INFO | finalignrag.rag_pipeline | Processed 70 / 300
-2026-06-20 05:13:15,919 | INFO | finalignrag.rag_pipeline | Processed 80 / 300
-2026-06-20 05:14:49,132 | INFO | finalignrag.rag_pipeline | Processed 90 / 300
-2026-06-20 05:16:22,792 | INFO | finalignrag.rag_pipeline | Processed 100 / 300
-2026-06-20 05:17:35,580 | INFO | finalignrag.rag_pipeline | Processed 110 / 300
-2026-06-20 05:19:11,274 | INFO | finalignrag.rag_pipeline | Processed 120 / 300
-2026-06-20 05:20:38,447 | INFO | finalignrag.rag_pipeline | Processed 130 / 300
-2026-06-20 05:22:31,668 | INFO | finalignrag.rag_pipeline | Processed 140 / 300
-2026-06-20 05:23:53,337 | INFO | finalignrag.rag_pipeline | Processed 150 / 300
-2026-06-20 05:25:30,773 | INFO | finalignrag.rag_pipeline | Processed 160 / 300
-2026-06-20 05:27:15,906 | INFO | finalignrag.rag_pipeline | Processed 170 / 300
-2026-06-20 05:28:47,156 | INFO | finalignrag.rag_pipeline | Processed 180 / 300
-2026-06-20 05:30:20,303 | INFO | finalignrag.rag_pipeline | Processed 190 / 300
-2026-06-20 05:32:02,782 | INFO | finalignrag.rag_pipeline | Processed 200 / 300
-2026-06-20 05:33:23,756 | INFO | finalignrag.rag_pipeline | Processed 210 / 300
-2026-06-20 05:34:44,096 | INFO | finalignrag.rag_pipeline | Processed 220 / 300
-2026-06-20 05:35:54,583 | INFO | finalignrag.rag_pipeline | Processed 230 / 300
-2026-06-20 05:37:19,077 | INFO | finalignrag.rag_pipeline | Processed 240 / 300
-2026-06-20 05:38:41,112 | INFO | finalignrag.rag_pipeline | Processed 250 / 300
-2026-06-20 05:39:51,089 | INFO | finalignrag.rag_pipeline | Processed 260 / 300
-2026-06-20 05:41:39,809 | INFO | finalignrag.rag_pipeline | Processed 270 / 300
-2026-06-20 05:42:50,473 | INFO | finalignrag.rag_pipeline | Processed 280 / 300
-2026-06-20 05:44:25,444 | INFO | finalignrag.rag_pipeline | Processed 290 / 300
-2026-06-20 05:45:39,851 | INFO | finalignrag.rag_pipeline | Processed 300 / 300
-2026-06-20 05:45:39,855 | INFO | finalignrag.rag_pipeline | Wrote 300 predictions to outputs/predictions/base_no_rag.jsonl
-2026-06-20 05:45:39,855 | INFO | run_inference | [base_no_rag] Done — 2607 s total, saved to outputs/predictions/base_no_rag.jsonl
-2026-06-20 05:45:40,366 | INFO | run_inference | ============================================================
-2026-06-20 05:45:40,366 | INFO | run_inference | Running system: base_simple_rag
-2026-06-20 05:45:40,366 | INFO | run_inference | ============================================================
-2026-06-20 05:45:40,366 | INFO | finalignrag.rag_pipeline | Loading tokenizer: Qwen/Qwen2.5-7B-Instruct
-2026-06-20 05:45:40,806 | INFO | finalignrag.rag_pipeline | Loading model [base_simple_rag] adapter=None
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:06<00:20,  6.94s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:13<00:13,  6.96s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:20<00:06,  6.90s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.62s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.73s/it]
-2026-06-20 05:46:08,079 | INFO | finalignrag.rag_pipeline | Initializing retrieval engine (embedder=BAAI/bge-large-en-v1.5, reranker=cross-encoder/ms-marco-MiniLM-L-6-v2)
-2026-06-20 05:46:08,079 | INFO | finalignrag.retrieval_engine | Loading embedding model 'BAAI/bge-large-en-v1.5' on cuda
-2026-06-20 05:46:08,134 | INFO | sentence_transformers.base.model | Loading SentenceTransformer model from BAAI/bge-large-en-v1.5.
-2026-06-20 05:46:09,779 | INFO | finalignrag.retrieval_engine | Loading reranker model 'cross-encoder/ms-marco-MiniLM-L-6-v2' on cuda
-2026-06-20 05:46:09,822 | INFO | sentence_transformers.base.model | No modules.json found for cross-encoder/ms-marco-MiniLM-L-6-v2, initializing a new CrossEncoder model.
-2026-06-20 05:46:10,420 | INFO | run_inference | Loading pre-built FAISS index from outputs/faiss_index
-2026-06-20 05:46:10,625 | INFO | finalignrag.retrieval_engine | Loaded index (6114 chunks) from outputs/faiss_index onto GPU
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:590: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:595: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
-  warnings.warn(
-2026-06-20 05:47:48,866 | INFO | finalignrag.rag_pipeline | Processed 10 / 300
-2026-06-20 05:49:44,829 | INFO | finalignrag.rag_pipeline | Processed 20 / 300
-2026-06-20 05:51:41,140 | INFO | finalignrag.rag_pipeline | Processed 30 / 300
-2026-06-20 05:53:19,948 | INFO | finalignrag.rag_pipeline | Processed 40 / 300
-2026-06-20 05:56:03,962 | INFO | finalignrag.rag_pipeline | Processed 50 / 300
-2026-06-20 05:58:01,710 | INFO | finalignrag.rag_pipeline | Processed 60 / 300
-2026-06-20 06:00:03,049 | INFO | finalignrag.rag_pipeline | Processed 70 / 300
-2026-06-20 06:01:54,754 | INFO | finalignrag.rag_pipeline | Processed 80 / 300
-2026-06-20 06:03:37,649 | INFO | finalignrag.rag_pipeline | Processed 90 / 300
-2026-06-20 06:05:09,129 | INFO | finalignrag.rag_pipeline | Processed 100 / 300
-2026-06-20 06:06:47,845 | INFO | finalignrag.rag_pipeline | Processed 110 / 300
-2026-06-20 06:08:21,434 | INFO | finalignrag.rag_pipeline | Processed 120 / 300
-2026-06-20 06:10:19,856 | INFO | finalignrag.rag_pipeline | Processed 130 / 300
-2026-06-20 06:12:01,422 | INFO | finalignrag.rag_pipeline | Processed 140 / 300
-2026-06-20 06:14:07,090 | INFO | finalignrag.rag_pipeline | Processed 150 / 300
-2026-06-20 06:16:02,265 | INFO | finalignrag.rag_pipeline | Processed 160 / 300
-2026-06-20 06:17:56,140 | INFO | finalignrag.rag_pipeline | Processed 170 / 300
-2026-06-20 06:19:56,665 | INFO | finalignrag.rag_pipeline | Processed 180 / 300
-2026-06-20 06:22:14,501 | INFO | finalignrag.rag_pipeline | Processed 190 / 300
-2026-06-20 06:23:52,227 | INFO | finalignrag.rag_pipeline | Processed 200 / 300
-2026-06-20 06:25:26,404 | INFO | finalignrag.rag_pipeline | Processed 210 / 300
-2026-06-20 06:27:43,267 | INFO | finalignrag.rag_pipeline | Processed 220 / 300
-2026-06-20 06:29:25,046 | INFO | finalignrag.rag_pipeline | Processed 230 / 300
-2026-06-20 06:31:18,477 | INFO | finalignrag.rag_pipeline | Processed 240 / 300
-2026-06-20 06:33:15,370 | INFO | finalignrag.rag_pipeline | Processed 250 / 300
-2026-06-20 06:35:12,699 | INFO | finalignrag.rag_pipeline | Processed 260 / 300
-2026-06-20 06:37:10,437 | INFO | finalignrag.rag_pipeline | Processed 270 / 300
-2026-06-20 06:39:11,610 | INFO | finalignrag.rag_pipeline | Processed 280 / 300
-2026-06-20 06:40:52,643 | INFO | finalignrag.rag_pipeline | Processed 290 / 300
-2026-06-20 06:42:54,450 | INFO | finalignrag.rag_pipeline | Processed 300 / 300
-2026-06-20 06:42:54,484 | INFO | finalignrag.rag_pipeline | Wrote 300 predictions to outputs/predictions/base_simple_rag.jsonl
-2026-06-20 06:42:54,484 | INFO | run_inference | [base_simple_rag] Done — 3404 s total, saved to outputs/predictions/base_simple_rag.jsonl
-2026-06-20 06:42:55,134 | INFO | run_inference | ============================================================
-2026-06-20 06:42:55,135 | INFO | run_inference | Running system: base_two_stage_rag
-2026-06-20 06:42:55,135 | INFO | run_inference | ============================================================
-2026-06-20 06:42:55,135 | INFO | finalignrag.rag_pipeline | Loading tokenizer: Qwen/Qwen2.5-7B-Instruct
-2026-06-20 06:42:55,631 | INFO | finalignrag.rag_pipeline | Loading model [base_two_stage_rag] adapter=None
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:06<00:20,  6.73s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:13<00:13,  6.69s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:20<00:06,  6.69s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.46s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.55s/it]
-2026-06-20 06:43:22,150 | INFO | finalignrag.rag_pipeline | Initializing retrieval engine (embedder=BAAI/bge-large-en-v1.5, reranker=cross-encoder/ms-marco-MiniLM-L-6-v2)
-2026-06-20 06:43:22,150 | INFO | finalignrag.retrieval_engine | Loading embedding model 'BAAI/bge-large-en-v1.5' on cuda
-2026-06-20 06:43:22,206 | INFO | sentence_transformers.base.model | Loading SentenceTransformer model from BAAI/bge-large-en-v1.5.
-2026-06-20 06:43:23,804 | INFO | finalignrag.retrieval_engine | Loading reranker model 'cross-encoder/ms-marco-MiniLM-L-6-v2' on cuda
-2026-06-20 06:43:23,848 | INFO | sentence_transformers.base.model | No modules.json found for cross-encoder/ms-marco-MiniLM-L-6-v2, initializing a new CrossEncoder model.
-2026-06-20 06:43:24,439 | INFO | run_inference | Loading pre-built FAISS index from outputs/faiss_index
-2026-06-20 06:43:24,628 | INFO | finalignrag.retrieval_engine | Loaded index (6114 chunks) from outputs/faiss_index onto GPU
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:590: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:595: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
-  warnings.warn(
-2026-06-20 06:45:03,668 | INFO | finalignrag.rag_pipeline | Processed 10 / 300
-2026-06-20 06:47:02,580 | INFO | finalignrag.rag_pipeline | Processed 20 / 300
-2026-06-20 06:48:39,597 | INFO | finalignrag.rag_pipeline | Processed 30 / 300
-2026-06-20 06:50:12,464 | INFO | finalignrag.rag_pipeline | Processed 40 / 300
-2026-06-20 06:52:20,905 | INFO | finalignrag.rag_pipeline | Processed 50 / 300
-2026-06-20 06:54:18,388 | INFO | finalignrag.rag_pipeline | Processed 60 / 300
-2026-06-20 06:56:02,876 | INFO | finalignrag.rag_pipeline | Processed 70 / 300
-2026-06-20 06:57:46,447 | INFO | finalignrag.rag_pipeline | Processed 80 / 300
-2026-06-20 06:59:16,415 | INFO | finalignrag.rag_pipeline | Processed 90 / 300
-2026-06-20 07:00:52,614 | INFO | finalignrag.rag_pipeline | Processed 100 / 300
-2026-06-20 07:02:31,519 | INFO | finalignrag.rag_pipeline | Processed 110 / 300
-2026-06-20 07:04:19,246 | INFO | finalignrag.rag_pipeline | Processed 120 / 300
-2026-06-20 07:05:57,819 | INFO | finalignrag.rag_pipeline | Processed 130 / 300
-2026-06-20 07:07:40,630 | INFO | finalignrag.rag_pipeline | Processed 140 / 300
-2026-06-20 07:09:16,729 | INFO | finalignrag.rag_pipeline | Processed 150 / 300
-2026-06-20 07:10:51,760 | INFO | finalignrag.rag_pipeline | Processed 160 / 300
-2026-06-20 07:12:36,987 | INFO | finalignrag.rag_pipeline | Processed 170 / 300
-2026-06-20 07:14:26,765 | INFO | finalignrag.rag_pipeline | Processed 180 / 300
-2026-06-20 07:16:44,721 | INFO | finalignrag.rag_pipeline | Processed 190 / 300
-2026-06-20 07:18:09,287 | INFO | finalignrag.rag_pipeline | Processed 200 / 300
-2026-06-20 07:20:06,422 | INFO | finalignrag.rag_pipeline | Processed 210 / 300
-2026-06-20 07:21:43,077 | INFO | finalignrag.rag_pipeline | Processed 220 / 300
-2026-06-20 07:23:27,789 | INFO | finalignrag.rag_pipeline | Processed 230 / 300
-2026-06-20 07:25:07,427 | INFO | finalignrag.rag_pipeline | Processed 240 / 300
-2026-06-20 07:26:46,714 | INFO | finalignrag.rag_pipeline | Processed 250 / 300
-2026-06-20 07:28:26,810 | INFO | finalignrag.rag_pipeline | Processed 260 / 300
-2026-06-20 07:30:28,249 | INFO | finalignrag.rag_pipeline | Processed 270 / 300
-2026-06-20 07:32:10,780 | INFO | finalignrag.rag_pipeline | Processed 280 / 300
-2026-06-20 07:33:48,970 | INFO | finalignrag.rag_pipeline | Processed 290 / 300
-2026-06-20 07:35:54,024 | INFO | finalignrag.rag_pipeline | Processed 300 / 300
-2026-06-20 07:35:54,060 | INFO | finalignrag.rag_pipeline | Wrote 300 predictions to outputs/predictions/base_two_stage_rag.jsonl
-2026-06-20 07:35:54,060 | INFO | run_inference | [base_two_stage_rag] Done — 3149 s total, saved to outputs/predictions/base_two_stage_rag.jsonl
-2026-06-20 07:35:54,707 | INFO | run_inference | ============================================================
-2026-06-20 07:35:54,708 | INFO | run_inference | Running system: sft_two_stage_rag
-2026-06-20 07:35:54,708 | INFO | run_inference | ============================================================
-2026-06-20 07:35:54,709 | INFO | finalignrag.rag_pipeline | Loading tokenizer: Qwen/Qwen2.5-7B-Instruct
-2026-06-20 07:35:55,206 | INFO | finalignrag.rag_pipeline | Loading model [sft_two_stage_rag] adapter=outputs/sft_adapter
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:06<00:20,  6.68s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:13<00:13,  6.72s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:20<00:06,  6.72s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.49s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.57s/it]
-2026-06-20 07:36:21,880 | INFO | finalignrag.rag_pipeline | Loading PEFT adapter from outputs/sft_adapter
-2026-06-20 07:36:22,908 | INFO | finalignrag.rag_pipeline | Initializing retrieval engine (embedder=BAAI/bge-large-en-v1.5, reranker=cross-encoder/ms-marco-MiniLM-L-6-v2)
-2026-06-20 07:36:22,908 | INFO | finalignrag.retrieval_engine | Loading embedding model 'BAAI/bge-large-en-v1.5' on cuda
-2026-06-20 07:36:22,970 | INFO | sentence_transformers.base.model | Loading SentenceTransformer model from BAAI/bge-large-en-v1.5.
-2026-06-20 07:36:24,575 | INFO | finalignrag.retrieval_engine | Loading reranker model 'cross-encoder/ms-marco-MiniLM-L-6-v2' on cuda
-2026-06-20 07:36:24,627 | INFO | sentence_transformers.base.model | No modules.json found for cross-encoder/ms-marco-MiniLM-L-6-v2, initializing a new CrossEncoder model.
-2026-06-20 07:36:25,224 | INFO | run_inference | Loading pre-built FAISS index from outputs/faiss_index
-2026-06-20 07:36:25,411 | INFO | finalignrag.retrieval_engine | Loaded index (6114 chunks) from outputs/faiss_index onto GPU
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:590: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:595: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
-  warnings.warn(
-2026-06-20 07:42:31,426 | INFO | finalignrag.rag_pipeline | Processed 10 / 300
-2026-06-20 07:48:02,343 | INFO | finalignrag.rag_pipeline | Processed 20 / 300
-2026-06-20 07:53:26,693 | INFO | finalignrag.rag_pipeline | Processed 30 / 300
-2026-06-20 07:59:15,400 | INFO | finalignrag.rag_pipeline | Processed 40 / 300
-2026-06-20 08:04:48,799 | INFO | finalignrag.rag_pipeline | Processed 50 / 300
-2026-06-20 08:10:37,601 | INFO | finalignrag.rag_pipeline | Processed 60 / 300
-2026-06-20 08:15:46,538 | INFO | finalignrag.rag_pipeline | Processed 70 / 300
-2026-06-20 08:20:24,623 | INFO | finalignrag.rag_pipeline | Processed 80 / 300
-2026-06-20 08:25:51,218 | INFO | finalignrag.rag_pipeline | Processed 90 / 300
-2026-06-20 08:31:24,429 | INFO | finalignrag.rag_pipeline | Processed 100 / 300
-2026-06-20 08:36:14,588 | INFO | finalignrag.rag_pipeline | Processed 110 / 300
-2026-06-20 08:41:32,973 | INFO | finalignrag.rag_pipeline | Processed 120 / 300
-2026-06-20 08:46:53,664 | INFO | finalignrag.rag_pipeline | Processed 130 / 300
-2026-06-20 08:52:31,110 | INFO | finalignrag.rag_pipeline | Processed 140 / 300
-2026-06-20 08:58:25,377 | INFO | finalignrag.rag_pipeline | Processed 150 / 300
-2026-06-20 09:04:29,797 | INFO | finalignrag.rag_pipeline | Processed 160 / 300
-2026-06-20 09:10:03,546 | INFO | finalignrag.rag_pipeline | Processed 170 / 300
-2026-06-20 09:15:27,028 | INFO | finalignrag.rag_pipeline | Processed 180 / 300
-2026-06-20 09:20:50,587 | INFO | finalignrag.rag_pipeline | Processed 190 / 300
-2026-06-20 09:26:19,740 | INFO | finalignrag.rag_pipeline | Processed 200 / 300
-2026-06-20 09:31:37,045 | INFO | finalignrag.rag_pipeline | Processed 210 / 300
-2026-06-20 09:36:58,948 | INFO | finalignrag.rag_pipeline | Processed 220 / 300
-2026-06-20 09:42:35,832 | INFO | finalignrag.rag_pipeline | Processed 230 / 300
-2026-06-20 09:48:02,379 | INFO | finalignrag.rag_pipeline | Processed 240 / 300
-2026-06-20 09:54:04,915 | INFO | finalignrag.rag_pipeline | Processed 250 / 300
-2026-06-20 09:59:37,515 | INFO | finalignrag.rag_pipeline | Processed 260 / 300
-2026-06-20 10:05:03,333 | INFO | finalignrag.rag_pipeline | Processed 270 / 300
-2026-06-20 10:10:10,861 | INFO | finalignrag.rag_pipeline | Processed 280 / 300
-2026-06-20 10:15:26,189 | INFO | finalignrag.rag_pipeline | Processed 290 / 300
-2026-06-20 10:20:36,096 | INFO | finalignrag.rag_pipeline | Processed 300 / 300
-2026-06-20 10:20:36,133 | INFO | finalignrag.rag_pipeline | Wrote 300 predictions to outputs/predictions/sft_two_stage_rag.jsonl
-2026-06-20 10:20:36,133 | INFO | run_inference | [sft_two_stage_rag] Done — 9851 s total, saved to outputs/predictions/sft_two_stage_rag.jsonl
-2026-06-20 10:20:36,792 | INFO | run_inference | ============================================================
-2026-06-20 10:20:36,792 | INFO | run_inference | Running system: sft_dpo_two_stage_rag
-2026-06-20 10:20:36,793 | INFO | run_inference | ============================================================
-2026-06-20 10:20:36,793 | INFO | finalignrag.rag_pipeline | Loading tokenizer: Qwen/Qwen2.5-7B-Instruct
-2026-06-20 10:20:37,340 | INFO | finalignrag.rag_pipeline | Loading model [sft_dpo_two_stage_rag] adapter=outputs/dpo_adapter
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:06<00:20,  6.87s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:13<00:13,  6.95s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:20<00:06,  6.82s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.51s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.64s/it]
-2026-06-20 10:21:04,278 | INFO | finalignrag.rag_pipeline | Loading PEFT adapter from outputs/dpo_adapter
-2026-06-20 10:21:05,312 | INFO | finalignrag.rag_pipeline | Initializing retrieval engine (embedder=BAAI/bge-large-en-v1.5, reranker=cross-encoder/ms-marco-MiniLM-L-6-v2)
-2026-06-20 10:21:05,312 | INFO | finalignrag.retrieval_engine | Loading embedding model 'BAAI/bge-large-en-v1.5' on cuda
-2026-06-20 10:21:05,374 | INFO | sentence_transformers.base.model | Loading SentenceTransformer model from BAAI/bge-large-en-v1.5.
-2026-06-20 10:21:06,998 | INFO | finalignrag.retrieval_engine | Loading reranker model 'cross-encoder/ms-marco-MiniLM-L-6-v2' on cuda
-2026-06-20 10:21:07,048 | INFO | sentence_transformers.base.model | No modules.json found for cross-encoder/ms-marco-MiniLM-L-6-v2, initializing a new CrossEncoder model.
-2026-06-20 10:21:07,692 | INFO | run_inference | Loading pre-built FAISS index from outputs/faiss_index
-2026-06-20 10:21:07,880 | INFO | finalignrag.retrieval_engine | Loaded index (6114 chunks) from outputs/faiss_index onto GPU
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:590: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:595: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
-  warnings.warn(
-2026-06-20 10:26:38,155 | INFO | finalignrag.rag_pipeline | Processed 10 / 300
-2026-06-20 10:32:09,191 | INFO | finalignrag.rag_pipeline | Processed 20 / 300
-2026-06-20 10:37:55,562 | INFO | finalignrag.rag_pipeline | Processed 30 / 300
-2026-06-20 10:43:44,729 | INFO | finalignrag.rag_pipeline | Processed 40 / 300
-2026-06-20 10:49:25,180 | INFO | finalignrag.rag_pipeline | Processed 50 / 300
-2026-06-20 10:55:12,202 | INFO | finalignrag.rag_pipeline | Processed 60 / 300
-2026-06-20 11:00:38,555 | INFO | finalignrag.rag_pipeline | Processed 70 / 300
-2026-06-20 11:06:23,524 | INFO | finalignrag.rag_pipeline | Processed 80 / 300
-2026-06-20 11:12:01,431 | INFO | finalignrag.rag_pipeline | Processed 90 / 300
-2026-06-20 11:17:54,337 | INFO | finalignrag.rag_pipeline | Processed 100 / 300
-2026-06-20 11:23:47,829 | INFO | finalignrag.rag_pipeline | Processed 110 / 300
-2026-06-20 11:29:12,998 | INFO | finalignrag.rag_pipeline | Processed 120 / 300
-2026-06-20 11:34:43,359 | INFO | finalignrag.rag_pipeline | Processed 130 / 300
-2026-06-20 11:40:16,855 | INFO | finalignrag.rag_pipeline | Processed 140 / 300
-2026-06-20 11:45:40,540 | INFO | finalignrag.rag_pipeline | Processed 150 / 300
-2026-06-20 11:51:37,811 | INFO | finalignrag.rag_pipeline | Processed 160 / 300
-2026-06-20 11:57:14,276 | INFO | finalignrag.rag_pipeline | Processed 170 / 300
-2026-06-20 12:02:55,738 | INFO | finalignrag.rag_pipeline | Processed 180 / 300
-2026-06-20 12:08:33,834 | INFO | finalignrag.rag_pipeline | Processed 190 / 300
-2026-06-20 12:13:59,159 | INFO | finalignrag.rag_pipeline | Processed 200 / 300
-2026-06-20 12:19:30,360 | INFO | finalignrag.rag_pipeline | Processed 210 / 300
-2026-06-20 12:24:56,670 | INFO | finalignrag.rag_pipeline | Processed 220 / 300
-2026-06-20 12:30:44,432 | INFO | finalignrag.rag_pipeline | Processed 230 / 300
-2026-06-20 12:36:10,086 | INFO | finalignrag.rag_pipeline | Processed 240 / 300
-2026-06-20 12:41:35,818 | INFO | finalignrag.rag_pipeline | Processed 250 / 300
-2026-06-20 12:46:58,719 | INFO | finalignrag.rag_pipeline | Processed 260 / 300
-2026-06-20 12:52:28,841 | INFO | finalignrag.rag_pipeline | Processed 270 / 300
-2026-06-20 12:58:05,043 | INFO | finalignrag.rag_pipeline | Processed 280 / 300
-2026-06-20 13:03:48,263 | INFO | finalignrag.rag_pipeline | Processed 290 / 300
-2026-06-20 13:09:16,373 | INFO | finalignrag.rag_pipeline | Processed 300 / 300
-2026-06-20 13:09:16,412 | INFO | finalignrag.rag_pipeline | Wrote 300 predictions to outputs/predictions/sft_dpo_two_stage_rag.jsonl
-2026-06-20 13:09:16,412 | INFO | run_inference | [sft_dpo_two_stage_rag] Done — 10089 s total, saved to outputs/predictions/sft_dpo_two_stage_rag.jsonl
-2026-06-20 13:09:17,069 | INFO | run_inference | All systems complete. Predictions in outputs/predictions/
-2026-06-20 15:36:58,840 | INFO | run_inference | ============================================================
-2026-06-20 15:36:58,840 | INFO | run_inference | Running system: sft_two_stage_rag
-2026-06-20 15:36:58,840 | INFO | run_inference | ============================================================
-2026-06-20 15:36:58,862 | INFO | finalignrag.rag_pipeline | Loading tokenizer: Qwen/Qwen2.5-7B-Instruct
-2026-06-20 15:36:59,245 | INFO | finalignrag.rag_pipeline | Loading model [sft_two_stage_rag] adapter=outputs/sft_adapter
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:07<00:21,  7.23s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:13<00:13,  6.96s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:20<00:06,  6.90s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.60s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.74s/it]
-2026-06-20 15:37:28,804 | INFO | finalignrag.rag_pipeline | Loading PEFT adapter from outputs/sft_adapter
-2026-06-20 15:37:29,826 | INFO | finalignrag.rag_pipeline | Initializing retrieval engine (embedder=BAAI/bge-large-en-v1.5, reranker=cross-encoder/ms-marco-MiniLM-L-6-v2)
-2026-06-20 15:37:29,827 | INFO | finalignrag.retrieval_engine | Loading embedding model 'BAAI/bge-large-en-v1.5' on cuda
-2026-06-20 15:37:29,889 | INFO | sentence_transformers.base.model | Loading SentenceTransformer model from BAAI/bge-large-en-v1.5.
-2026-06-20 15:37:31,572 | INFO | finalignrag.retrieval_engine | Loading reranker model 'cross-encoder/ms-marco-MiniLM-L-6-v2' on cuda
-2026-06-20 15:37:31,618 | INFO | sentence_transformers.base.model | No modules.json found for cross-encoder/ms-marco-MiniLM-L-6-v2, initializing a new CrossEncoder model.
-2026-06-20 15:37:32,186 | INFO | run_inference | Loading pre-built FAISS index from outputs/faiss_index
-2026-06-20 15:37:32,386 | INFO | finalignrag.retrieval_engine | Loaded index (6114 chunks) from outputs/faiss_index onto GPU
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:590: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:595: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-/home/shuai/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
-  warnings.warn(
-2026-06-20 15:46:14,876 | INFO | finalignrag.rag_pipeline | Processed 10 / 300
-2026-06-20 15:54:56,733 | INFO | finalignrag.rag_pipeline | Processed 20 / 300
-2026-06-20 16:02:36,432 | INFO | finalignrag.rag_pipeline | Processed 30 / 300
-2026-06-20 16:12:16,633 | INFO | finalignrag.rag_pipeline | Processed 40 / 300
-2026-06-20 16:21:00,842 | INFO | finalignrag.rag_pipeline | Processed 50 / 300
-2026-06-20 16:29:53,305 | INFO | finalignrag.rag_pipeline | Processed 60 / 300
-2026-06-20 16:38:58,489 | INFO | finalignrag.rag_pipeline | Processed 70 / 300
-2026-06-20 16:47:23,403 | INFO | finalignrag.rag_pipeline | Processed 80 / 300
-2026-06-20 16:57:02,108 | INFO | finalignrag.rag_pipeline | Processed 90 / 300
-2026-06-20 17:05:34,530 | INFO | finalignrag.rag_pipeline | Processed 100 / 300
-2026-06-20 17:15:16,755 | INFO | finalignrag.rag_pipeline | Processed 110 / 300
-2026-06-20 17:23:24,741 | INFO | finalignrag.rag_pipeline | Processed 120 / 300
-2026-06-20 17:31:16,941 | INFO | finalignrag.rag_pipeline | Processed 130 / 300
-2026-06-20 17:39:12,688 | INFO | finalignrag.rag_pipeline | Processed 140 / 300
-2026-06-20 17:47:23,745 | INFO | finalignrag.rag_pipeline | Processed 150 / 300
-2026-06-20 17:57:16,912 | INFO | finalignrag.rag_pipeline | Processed 160 / 300
-2026-06-20 18:06:15,198 | INFO | finalignrag.rag_pipeline | Processed 170 / 300
-2026-06-20 18:13:15,684 | INFO | finalignrag.rag_pipeline | Processed 180 / 300
-2026-06-20 18:20:24,222 | INFO | finalignrag.rag_pipeline | Processed 190 / 300
-2026-06-20 18:29:22,009 | INFO | finalignrag.rag_pipeline | Processed 200 / 300
-2026-06-20 18:38:43,854 | INFO | finalignrag.rag_pipeline | Processed 210 / 300
-2026-06-20 18:47:48,659 | INFO | finalignrag.rag_pipeline | Processed 220 / 300
-2026-06-20 18:57:39,430 | INFO | finalignrag.rag_pipeline | Processed 230 / 300
-2026-06-20 19:06:11,955 | INFO | finalignrag.rag_pipeline | Processed 240 / 300
-2026-06-20 19:13:38,368 | INFO | finalignrag.rag_pipeline | Processed 250 / 300
-2026-06-20 19:23:20,920 | INFO | finalignrag.rag_pipeline | Processed 260 / 300
-2026-06-20 19:32:36,461 | INFO | finalignrag.rag_pipeline | Processed 270 / 300
-2026-06-20 19:40:07,449 | INFO | finalignrag.rag_pipeline | Processed 280 / 300
-2026-06-20 19:48:29,058 | INFO | finalignrag.rag_pipeline | Processed 290 / 300
-2026-06-20 19:58:35,862 | INFO | finalignrag.rag_pipeline | Processed 300 / 300
-2026-06-20 19:58:35,900 | INFO | finalignrag.rag_pipeline | Wrote 300 predictions to outputs/predictions/sft_two_stage_rag.jsonl
-2026-06-20 19:58:35,901 | INFO | run_inference | [sft_two_stage_rag] Done — 15664 s total, saved to outputs/predictions/sft_two_stage_rag.jsonl
-2026-06-20 19:58:36,556 | INFO | run_inference | All systems complete. Predictions in outputs/predictions/

@@ -11,7 +11,7 @@ HARDWARE TARGET — single NVIDIA Titan X (Pascal, sm_61, 12 GB)
 QLoRA (4-bit NF4 quantisation + LoRA adapters) on a single GPU.
   * 4-bit base model: 7B × 0.5 bytes ≈ 3.8 GB.  LoRA adapters: ~134 MB.
     Total GPU ≈ 4 GB, fits comfortably in 12 GB.
-  * bitsandbytes NF4 with double-quant; compute dtype fp16 (scalar fp16 on Pascal).
+  * bitsandbytes NF4 with double-quant and float32 compute to avoid overflow.
   * gradient checkpointing enabled; batch=1, grad_accum=16.
   * No DeepSpeed / distributed -- plain ``python -m src.alignment``.
 
@@ -74,8 +74,7 @@ class TrainingConfig:
     batch_size: int = 1
     gradient_accumulation_steps: int = 16
     logging_steps: int = 10
-    max_steps: int = 1000
-    fp16: bool = True                  # QLoRA compute dtype fp16 on Pascal
+    max_steps: int = 1500
     seed: int = 42
 
     # --- Implementation extras ---
@@ -87,7 +86,6 @@ class TrainingConfig:
     dpo_max_steps: int = 400             # fewer steps than SFT; DPO over-trains quickly
     sft_adapter_dir: str = "outputs/sft_adapter"
     dpo_adapter_dir: str = "outputs/dpo_adapter"
-    deepspeed_config: str | None = None  # QLoRA uses single GPU; no DeepSpeed needed
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainingConfig":
@@ -106,9 +104,9 @@ class TrainingConfig:
             kwargs["model_name"] = models["base_model"]
         for key in (
             "output_dir", "lora_rank", "lora_alpha", "learning_rate", "batch_size",
-            "gradient_accumulation_steps", "logging_steps", "max_steps", "fp16",
+            "gradient_accumulation_steps", "logging_steps", "max_steps",
             "seed", "lora_dropout", "gradient_checkpointing", "max_seq_length",
-            "sft_adapter_dir", "dpo_adapter_dir", "deepspeed_config",
+            "sft_adapter_dir", "dpo_adapter_dir",
         ):
             if training.get(key) is not None:
                 kwargs[key] = training[key]
@@ -192,7 +190,7 @@ def _load_base_model(config: TrainingConfig) -> AutoModelForCausalLM:
     """Load the base model in 4-bit NF4 QLoRA mode (bitsandbytes).
 
     4-bit NF4 + double-quant: 7B × ~0.5 bytes ≈ 3.8 GB, fits on a single 12 GB GPU.
-    Compute dtype fp16 is used for the dequant matmul path (scalar fp16 on Pascal).
+    Float32 compute is used for the dequant matmul path to avoid Pascal overflow.
     """
     from transformers import BitsAndBytesConfig
 
@@ -228,7 +226,7 @@ def _lora_config(config: TrainingConfig) -> LoraConfig:
 # Training entry points
 # ---------------------------------------------------------------------------
 def run_sft(training_config: TrainingConfig, data_path: str) -> None:
-    """Run LoRA SFT with TRL ``SFTTrainer`` and DeepSpeed ZeRO-3."""
+    """Run QLoRA SFT with TRL's ``SFTTrainer``."""
     set_seed(training_config.seed)
 
     tokenizer = _load_tokenizer(training_config.model_name)
@@ -277,7 +275,7 @@ def run_sft(training_config: TrainingConfig, data_path: str) -> None:
 
 
 def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: str) -> None:
-    """Run DPO with TRL ``DPOTrainer`` and DeepSpeed ZeRO-3, initialized from base + SFT adapter."""
+    """Run DPO from the trained SFT adapter with TRL's ``DPOTrainer``."""
     set_seed(training_config.seed)
 
     tokenizer = _load_tokenizer(training_config.model_name)
@@ -335,7 +333,7 @@ def run_dpo(training_config: TrainingConfig, data_path: str, sft_adapter_path: s
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m src.alignment",
-        description="QLoRA SFT / DPO alignment for FinAlignRAG (GPU-only, fp16/Pascal).",
+        description="QLoRA SFT / DPO alignment for FinAlignRAG (GPU-only).",
     )
     parser.add_argument("--mode", required=True, choices=["sft", "dpo"])
     parser.add_argument("--config", required=True, help="Path to configs/default.yaml.")

@@ -4,17 +4,19 @@ Retrieval-Grounded Financial Reasoning with SFT and DPO.
 
 Modules
 -------
-data_pipeline      : ingestion, chunking, split-by-ticker leakage control (Step 1)
-retrieval_engine   : FAISS dense retrieval + cross-encoder reranking (Step 2)
-eval_harness       : deterministic JSON / numerical / evidence scoring (Step 3)
-alignment          : QLoRA SFT + DPO training (Step 4)
+build_sft_data     : FinQA extraction and held-out evaluation preparation
+gen_dpo_data       : preference-pair generation from SFT targets
+alignment          : QLoRA SFT and DPO training
+retrieval_engine   : FAISS dense retrieval and cross-encoder reranking
 rag_pipeline       : RAG prompt serialization & inference coordination
+eval_harness       : deterministic JSON, numerical, and evidence scoring
 """
 
 __all__ = [
-    "data_pipeline",
-    "retrieval_engine",
-    "eval_harness",
+    "build_sft_data",
+    "gen_dpo_data",
     "alignment",
+    "retrieval_engine",
     "rag_pipeline",
+    "eval_harness",
 ]

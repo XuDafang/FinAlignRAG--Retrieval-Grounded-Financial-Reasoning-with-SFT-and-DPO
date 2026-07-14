@@ -2,8 +2,8 @@
 # ---------------------------------------------------------------------------
 # HARDWARE NOTE (Titan X Pascal, compute capability sm_61, 12 GB VRAM):
 #   * bitsandbytes 4-bit NF4 quantization works on Pascal.
-#   * bfloat16 is NOT natively supported on Pascal — training must use fp16
-#     instead of bf16 (the playbook's default of bf16 will fail / fall back).
+#   * bfloat16 is not natively supported on Pascal.
+#   * This project uses float32 activations to avoid fp16 attention overflow.
 #   * flash-attention requires Ampere (sm_80+) and is intentionally EXCLUDED.
 #   * Install a CUDA build of torch matching your driver, e.g.:
 #       pip install torch --index-url https://download.pytorch.org/whl/cu121
@@ -21,9 +21,6 @@ peft>=0.13
 # dataset_text_field/max_seq_length/beta). Newer TRL renames some of these.
 trl>=0.11,<0.13
 bitsandbytes>=0.43        # still used by rag_pipeline.py for 4-bit inference
-
-# --- Multi-GPU distributed training ---
-deepspeed>=0.14           # ZeRO-3 parameter + gradient + optimizer sharding
 
 # --- Retrieval (dense embeddings + cross-encoder reranking) ---
 sentence-transformers>=3.0

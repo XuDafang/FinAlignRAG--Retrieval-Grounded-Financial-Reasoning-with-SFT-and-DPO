@@ -1,353 +1,319 @@
-# FinAlignRAG: Retrieval-Grounded Financial Reasoning with SFT and DPO
+# FinAlignRAG: Learning SFT and DPO with Financial Question Answering
 
-An ablation study measuring how much each layer of the stack — retrieval quality, supervised fine-tuning (SFT), and preference alignment (DPO) — contributes to accurate numerical reasoning over financial documents (FinQA / SEC filings).
+FinAlignRAG is a small, end-to-end project for learning two model-alignment
+stages:
 
----
+- **Supervised fine-tuning (SFT):** teach a language model to answer financial
+  questions in a grounded JSON format.
+- **Direct Preference Optimization (DPO):** continue from the SFT adapter and
+  teach the model to prefer a correct response over a plausible incorrect one.
 
-## Skills Demonstrated
+The project uses FinQA financial-report questions and a retrieval-augmented
+generation (RAG) pipeline. There is one supported data path, one configuration,
+and one set of output locations.
 
-**Model Fine-Tuning & Alignment**
-- Fine-tuned Qwen2.5-7B on financial QA via QLoRA (4-bit NF4, LoRA rank-16) on a single 12 GB GPU; improved numerical accuracy 0% → 15.3% and refusal accuracy 14.7% → 100% on a 300-question held-out eval set
-- Diagnosed DPO reward collapse from trivially-separable synthetic rejections; loss saturated at step 1, producing a degenerate adapter — documented failure mode and root cause
-- Reduced inference latency 2.6× (51.7 s → 19.6 s) by reformatting SFT targets: compact chain-of-thought steps and a 350-char evidence cap eliminated 14% JSON truncation rate entirely
+## Pipeline
 
-**Retrieval-Augmented Generation**
-- Built a two-stage RAG pipeline (BGE-large FAISS + MS-MARCO cross-encoder reranker); 5-system ablation showed retrieval adds 7 pp and SFT adds 8 pp to numerical accuracy (0% → 15.3%)
-- Diagnosed 71% retrieval failure rate as binding accuracy constraint; model conditional accuracy is ~60% when the correct chunk is retrieved
-- Implemented BM25+dense hybrid retrieval with RRF fusion; identified 24% cross-company contamination as root cause of regression (15.3% → 13.3%) — financial questions share identical templates across companies, defeating keyword matching
+```text
+data/train.json
+      |
+      |  python -m src.build_sft_data
+      v
+data/sft/train.jsonl ------------------------> SFT training
+      |                                          |
+      |  python -m src.gen_dpo_data              v
+      v                                  outputs/sft_adapter/
+data/dpo/train.jsonl                            |
+      |                                          | initialize from SFT
+      +------------------------------------------+
+                                                 v
+                                         DPO training
+                                                 |
+                                                 v
+                                         outputs/dpo_adapter/
 
-**GPU & Systems Debugging**
-- Fixed fp16 attention overflow on NVIDIA Pascal (sm_61): QK^T sums exceed fp16 max at layer 27; resolved with `torch_dtype=float32`
-- Halved DPO peak GPU memory by precomputing reference logprobs before the training loop (`precompute_ref_log_probs=True`)
-
-**Evaluation & Data Engineering**
-- Built a deterministic eval harness scoring JSON validity, numerical accuracy (0.1% tolerance), and refusal accuracy across 5 systems on 300 stratified held-out questions
-- Extracted 3,439 chain-of-thought training pairs from FinQA's structured annotation format; applied ticker-stratified splits to prevent company-level leakage
-
----
-
-## Results
-
-Evaluated on 300 held-out questions from FinQA, stratified by company ticker (no leakage). The retrieval corpus uses the same compressed table-format texts the SFT model was trained on to ensure a fair evaluation.
-
-### Ablation: component contributions (v1 — accuracy-maximizing)
-
-| System | JSON Valid | Num. Accuracy | Refusal Acc. | Avg Latency |
-|---|---|---|---|---|
-| `base_no_rag` | 97.3% | 0.0% | 14.7% | 8.7 s |
-| `base_simple_rag` | 63.3% | 7.0% | 52.7% | 11.7 s |
-| `base_two_stage_rag` | 68.0% | 6.7% | 53.7% | 11.6 s |
-| `sft_two_stage_rag` (v1) | 97.3% | **15.3%** | 97.3% | 51.7 s |
-| `sft_dpo_two_stage_rag` ¹ | — | — | — | — |
-
-¹ Not evaluated — DPO adapter collapsed during training (degenerate repetitive output). See Key findings below.
-
-### SFT iteration: v1 vs v2b
-
-| Configuration | Training examples | JSON Valid | Num. Accuracy | Refusal Acc. | Avg Latency |
-|---|---|---|---|---|---|
-| v1 — compact calc, 2109 ex | 2,109 | 97.3% | **15.3%** | 97.3% | 51.7 s |
-| v2b — CoT calc, capped evidence, 3439 ex | 3,439 | **100%** | 13.0% | **100%** | **19.6 s** |
-
-v2b trades 2.3 pp of numerical accuracy for perfect JSON validity, perfect refusal accuracy, and **2.6× faster inference** — a better engineering configuration for a production setting where reliability and latency matter more than marginal accuracy gains.
-
-**Key findings:**
-
-- **Retrieval adds 7 pp numerical accuracy** over the no-RAG baseline (0% → 7%), confirming that the base model lacks the financial figures in its parametric memory.
-- **SFT adds another 8 pp** on top of retrieval (7% → 15.3%), a **2.2× lift** from learning to parse and calculate from the retrieved context.
-- **Refusal accuracy jumps from 14.7% to 97.3%** after SFT — the model learned when to answer vs. decline, the primary signal in the SFT training data.
-- **Dense vs. two-stage retrieval is a wash** (7.0% vs. 6.7%) — the cross-encoder reranker adds no measurable lift on this compact, keyword-dense corpus.
-- **More data + CoT steps improve output reliability** — v2b (3,439 examples, compact chain-of-thought) achieves 100% JSON validity and 2.6× lower latency vs. v1 by capping the evidence field in training targets, preventing output truncation.
-- **DPO collapsed** — the DPO adapter generates degenerate repetitive output (the ⚗ token loop). Root cause: synthetic rejected responses were too easily distinguishable (rule-perturbed arithmetic), causing the DPO objective to saturate at step 1 with loss ≈ 0 and near-zero gradients for 390 of 400 steps. The optimizer drifted the adapter weights into a degenerate attractor. This is a documented failure mode of DPO when `beta` is too low (0.1) and rejected samples are trivially separable; hard negatives generated by the policy model itself are needed.
-
----
-
-## Architecture
-
-```
-FinQA data (train.json)
-        │
-        ▼
-┌───────────────────┐
-│  data_pipeline.py │  chunk, split by ticker (no cross-split leakage)
-└───────────────────┘
-        │
-        ├── data/processed/chunks.jsonl    ← retrieval corpus
-        ├── data/sft/train.jsonl           ← SFT training pairs
-        └── data/dpo/train.jsonl           ← DPO chosen/rejected pairs
-
-        │
-        ▼
-┌──────────────────────┐        ┌──────────────────────────┐
-│  retrieval_engine.py │        │  alignment.py            │
-│  FAISS IndexFlatIP   │        │  QLoRA SFT (1000 steps)  │
-│  + cross-encoder     │        │  QLoRA DPO (400 steps)   │
-└──────────────────────┘        └──────────────────────────┘
-        │ top-5 chunks                    │ adapter weights
-        └──────────────┬──────────────────┘
-                       ▼
-              ┌──────────────────────┐
-              │  rag_pipeline.py     │
-              │  retrieve → prompt   │
-              │  → generate → JSON   │
-              └──────────────────────┘
-                       │ predictions.jsonl
-                       ▼
-              ┌──────────────────────┐
-              │  eval_harness.py     │
-              │  JSON validity       │
-              │  numerical accuracy  │
-              │  refusal accuracy    │
-              └──────────────────────┘
+data/dev.json
+      |
+      +--> data/processed/sft_chunks.jsonl --> retrieval index
+      +--> data/processed/questions.jsonl  --> inference and evaluation
 ```
 
----
+The base model is Qwen2.5-7B-Instruct. Training uses QLoRA: the base model is
+loaded in 4-bit form while small LoRA adapter weights are trained.
 
-## Data Files
+## Dataset
 
-This project does not download or parse PDF files at training or inference time. The FinQA data has already been extracted into JSON: `filename` keeps the original filing-page identifier, while `pre_text`, `post_text`, `table`, and `qa` hold the usable text, table, and answer annotations.
+FinQA is already extracted into JSON. This repository does **not** download or
+parse PDF files. A value such as `JKHY/2009/page_28.pdf` in the `filename`
+field identifies the source filing page; the model reads the extracted text,
+tables, questions, and annotations stored in JSON.
 
-### Source FinQA JSON
+### Source files
 
-| File | What it contains | Where it is used |
+| File | Contents | Use in this project |
 |---|---|---|
-| `data/train.json` | Original FinQA training split. JSON array of filing-page records with text, tables, and gold QA annotations. This checkout has 3,037 page records and 3,965 QA entries. | Read by `convert_finqa.py`, `prepare_sft.py`, and `src/build_sft_data.py` to build retrieval documents and SFT examples. |
-| `data/dev.json` | Original FinQA dev split with the same structure as `train.json`. This checkout has 421 page records and 542 QA entries. | Used for held-out/evaluation questions and, in v2, to add gold contexts to the retrieval corpus while excluding held-out questions from SFT training. |
-| `data/test_private.json` | Private FinQA test pages. It has page text and tables, but no public gold answer fields. | Kept for completeness; the reported ablation uses the held-out dev-derived question file instead. |
-| `data/train_turn.json`, `data/dev_turn.json`, `data/test_turn_private.json` | Turn-level FinQA variants. Each row is a single dialogue turn with the same page/table fields; private test turns omit gold answers. | Not used by the main ablation pipeline in this repo. |
+| `data/train.json` | 3,037 filing-page records and 3,965 QA annotations | Source for SFT examples and training-side retrieval evidence |
+| `data/dev.json` | 421 filing-page records and 542 QA annotations | Held-out source for evaluation questions and retrieval evidence |
+| `data/test_private.json` | 434 private-test records without public gold QA labels | Not used by the default learning pipeline |
+| `data/train_turn.json` | 11,104 conversational training turns | Optional turn-level experiments; not used by default |
+| `data/dev_turn.json` | 1,490 conversational development turns | Optional turn-level experiments; not used by default |
+| `data/test_turn_private.json` | 1,521 private conversational test turns | Not used by the default learning pipeline |
 
-A typical source record looks like:
+The JSON files are kept local and ignored by Git because they are large.
+
+### Record structure
+
+A typical FinQA record has this shape:
 
 ```json
 {
   "filename": "JKHY/2009/page_28.pdf",
-  "pre_text": ["paragraph before the table", "..."],
+  "pre_text": ["Narrative text before the table."],
   "table": [
-    ["2008", "year ended june 30 2009 2008", "year ended june 30 2009"],
+    ["", "2009", "2008"],
     ["net income", "$ 103102", "$ 104222"]
   ],
   "table_ori": [
-    ["", "Year ended June 30, 2009"],
+    ["", "2009", "2008"],
     ["Net income", "$103,102", "$104,222"]
   ],
-  "post_text": ["paragraph after the table", "..."],
+  "post_text": ["Narrative text after the table."],
   "qa": {
-    "question": "what was the percentage change ...",
+    "question": "What was the percentage change ...?",
     "answer": "14.1%",
     "program": "subtract(206588, 181001), divide(#0, 181001)",
     "steps": [
-      {"op": "minus2-1", "arg1": "206588", "arg2": "181001", "res": "25587"}
+      {"op": "minus2-1", "arg1": "206588", "arg2": "181001", "res": "25587"},
+      {"op": "divide2-2", "arg1": "#0", "arg2": "181001", "res": "14.1%"}
     ],
     "gold_inds": {
-      "table_6": "table-derived evidence sentence ..."
+      "table_6": "net cash from operating activities was 206588 in 2009 and 181001 in 2008"
     }
   }
 }
 ```
 
-`table` and `table_ori` are both arrays of rows, where each row is an array of cell strings. `table` is normalized for modeling; `table_ori` is closer to the original table text. The model usually sees flattened evidence text from `gold_inds`, not the raw nested table object.
+Some records use `qa_0`, `qa_1`, and similar keys instead of a single
+`qa` key. The data builder supports both forms.
 
-### Derived Training and Retrieval Files
+### Table storage
 
-| File | Structure | Producer | Consumer |
-|---|---|---|---|
-| `data/raw/documents.jsonl` | One JSON object per line: `ticker`, `source_doc_id`, `text`. The text is flattened filing-page context from FinQA `pre_text` and `post_text`. | `convert_finqa.py` | `src.data_pipeline` |
-| `data/processed/chunks.jsonl` | One chunk per line: `chunk_id`, `text`, `ticker`, `source_doc_id`, `chunk_index`. | `src.data_pipeline` | `src.retrieval_engine` / `src.rag_pipeline` |
-| `data/processed/train.jsonl`, `data/processed/val.jsonl`, `data/processed/test.jsonl` | Same chunk schema as `chunks.jsonl`, split by ticker so the same company does not appear in multiple splits. | `src.data_pipeline` | Split/leakage inspection and retrieval experiments. |
-| `data/processed/questions.jsonl` | Held-out evaluation questions: `id`, `question`, `ground_truth_answer`, `should_refuse`; optional `gold_chunk_ids` or `relevant_chunk_ids` enable retrieval recall scoring. | Evaluation-data preparation step | `run_inference.py`, `src.rag_pipeline`, `src.eval_harness` |
-| `data/processed/sft_chunks.jsonl` | v1 retrieval corpus aligned to SFT training context. Same chunk schema as above. | SFT data preparation | `run_inference.py` in default v1 mode |
-| `data/processed/sft_chunks_v2.jsonl` | v2 retrieval corpus built from FinQA gold evidence snippets; README results report 4,878 chunks. | `src.build_sft_data` | `run_inference.py --v2` |
-| `data/sft/train.jsonl` | v1 SFT rows: `ticker`, `source_doc_id`, `text`, `question`, `target_json`. `target_json` is the answer JSON string the model learns to emit. | `prepare_sft.py` | `src.alignment --mode sft` |
-| `data/sft/val.jsonl` | Dev split converted to the same SFT row schema as `train.jsonl`. | `prepare_sft.py` | Validation/inspection; not required by the main training command. |
-| `data/sft/train_v2.jsonl` | v2 SFT rows with compact chain-of-thought calculations and capped evidence; README results report 3,439 examples. | `src.build_sft_data` | `src.alignment --mode sft --config configs/v2.yaml` |
-| `data/dpo/train.jsonl` | Preference rows: `text`, `question`, `chosen`, `rejected`. `chosen` is the correct SFT target JSON; `rejected` is a synthetic plausible wrong answer. | `src.gen_dpo_data` | `src.alignment --mode dpo` |
+Tables are not stored as images. Both `table` and `table_ori` are nested
+arrays:
 
-The generated files under `data/processed/`, `data/sft/`, and `data/dpo/` may need to be rebuilt locally; the repository keeps placeholder `.gitkeep` files for empty generated directories.
+- The outer array is the sequence of rows.
+- Each row is an array of cell strings.
+- `table` contains normalized text.
+- `table_ori` is closer to the original formatting.
 
-### Prediction and Evaluation Files
+The training builder normally uses the flattened table or text evidence in
+`qa.gold_inds`. This keeps prompts compact and directly ties each answer to
+the evidence used by FinQA annotators.
 
-| File | Structure | Where it is used |
+## Generated Data
+
+Run:
+
+```bash
+python -m src.build_sft_data
+```
+
+The command uses `train.json` for SFT and keeps `dev.json` held out. In the
+included dataset it creates 3,321 SFT rows, 4,878 unique evidence chunks, and
+458 deduplicated evaluation questions.
+
+| File | Structure | Used by |
 |---|---|---|
-| `outputs/predictions/<system>.jsonl` | One prediction per question: `id`, `system_name`, `question`, `ground_truth_answer`, `predicted_json`, `retrieved_chunks`, `should_refuse`, `latency_ms`. | Written by `run_inference.py`; scored by `src.eval_harness`. |
-| `outputs/predictions/v2/<system>.jsonl` | Same prediction schema, but produced with the v2 corpus/adapters. | Written by `run_inference.py --v2`; scored by `src.eval_harness`. |
-| `outputs/reports/*.json` | Aggregate metrics such as JSON validity, numerical accuracy, refusal accuracy, retrieval recall, and latency. | Written by `src.eval_harness`. |
+| `data/sft/train.jsonl` | `ticker`, `source_doc_id`, `text`, `question`, `target_json` | SFT training and DPO-pair generation |
+| `data/processed/sft_chunks.jsonl` | `chunk_id`, `text`, `ticker`, `source_doc_id`, `chunk_index` | FAISS retrieval during inference |
+| `data/processed/questions.jsonl` | `id`, `question`, `ground_truth_answer`, `should_refuse`, `relevant_chunk_ids` | Held-out inference and evaluation |
+| `data/dpo/train.jsonl` | `text`, `question`, `chosen`, `rejected` | DPO training |
 
----
+Generated data, adapters, indexes, predictions, logs, and reports are ignored
+by Git. Their directories contain `.gitkeep` files so the expected layout is
+visible in a fresh clone.
 
-## Hardware & Training Details
+## SFT Data
 
-**Hardware:** Single NVIDIA Titan X (Pascal, sm_61, 12 GB VRAM)
+Each SFT row contains a context and question plus the exact response the model
+should learn to produce:
 
-**Why not multi-GPU ZeRO-3?** Pascal (sm_61) lacks fp16 tensor cores. DeepSpeed ZeRO-3 in fp32 requires 7B × 4 bytes ÷ 4 GPUs = 7 GB/GPU in sharded weights alone — plus cuBLAS workspace and NCCL buffers this exceeds 12 GB. ZeRO-3 with CPU offload triggered a 2.03 GiB CUDA OOM on the `embed_tokens` all-gather after `deepspeed.initialize()` consumed 6.4 GB of unexplained initialization overhead.
+```json
+{
+  "text": "net cash from operating activities was ...",
+  "question": "What was the percentage change ...?",
+  "target_json": "{\"answer\": \"14.1%\", \"calculation\": \"subtract(...)=...; divide(...)=14.1%\", \"evidence\": \"...\", \"confidence\": 0.95, \"insufficient_context\": false}"
+}
+```
 
-**Solution — QLoRA on a single GPU:**
-- 4-bit NF4 quantization (bitsandbytes): 7B × 0.5 bytes ≈ **3.8 GB** for the frozen base
-- LoRA rank-16 adapters on all attention + MLP projections: **~134 MB** trainable
-- `torch_dtype=float32` for activations — Pascal fp16 overflows in QK^T attention at layer 27 (K-values reach 419, sum over 128 head-dim reaches 3.7M, exceeds fp16 max 65,504)
-- `paged_adamw_8bit` optimizer, gradient checkpointing, batch size 1 × grad accum 16
-- No DeepSpeed, no torchrun — plain `python -m src.alignment`
+`src/alignment.py` turns this into a ChatML prompt followed by the target JSON
+completion. SFT teaches response structure, calculation-trace formatting, and
+grounding behavior.
 
-**SFT training (v1):** 1000 steps, cosine LR (2e-4 → 0), loss: 0.74 → 0.055, ~16 hours
-**SFT training (v2b):** 1500 steps on 3,439 examples, loss: 1.753 → 0.079, ~24 hours
+## DPO Data
 
-**DPO training:** 400 steps, β=0.1, `precompute_ref_log_probs=True` (halves GPU memory by caching reference logprobs upfront), ~13 hours — but collapsed (see Results above)
+`src/gen_dpo_data.py` converts every SFT target into a preference pair:
 
----
+```json
+{
+  "text": "retrieved financial evidence",
+  "question": "the financial question",
+  "chosen": "the correct SFT target JSON",
+  "rejected": "a plausible but incorrect JSON response"
+}
+```
 
-## Ablation Systems
-
-| # | System | Retrieval | Model |
-|---|--------|-----------|-------|
-| 0 | `base_no_rag` | none | Qwen2.5-7B-Instruct |
-| 1 | `base_simple_rag` | dense FAISS cosine | Qwen2.5-7B-Instruct |
-| 2 | `base_two_stage_rag` | dense + cross-encoder rerank | Qwen2.5-7B-Instruct |
-| 3 | `sft_two_stage_rag` | dense + cross-encoder rerank | + SFT LoRA adapter |
-| 4 | `sft_dpo_two_stage_rag` | dense + cross-encoder rerank | + DPO LoRA adapter |
-
-All systems use the same ChatML prompt, greedy decoding, and output schema — enabling apples-to-apples scoring.
-
----
+Rejected responses simulate arithmetic errors, incorrect formulas,
+hallucinated values, and confidence mistakes. This is intentionally a simple
+learning baseline. Synthetic negatives can become too easy for the model, so
+inspect the pairs and monitor DPO loss and reward margins during experiments.
+Policy-generated hard negatives are a useful next step.
 
 ## Installation
 
-```bash
-# GPU FAISS must come from conda (PyPI build lacks faiss.StandardGpuResources)
-conda install -c pytorch -c nvidia faiss-gpu
+The training and retrieval paths require an NVIDIA GPU. The original hardware
+target was a 12 GB Pascal GPU, so the code uses eager attention and float32
+activations around the 4-bit model.
 
-# PyTorch with CUDA (match your driver — check nvidia-smi)
+```bash
+conda create -n finalignrag python=3.11
+conda activate finalignrag
+
+# Install a CUDA build of PyTorch that matches the local driver.
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 
-# All other dependencies
+# GPU FAISS is normally installed through conda on Linux or WSL2.
+conda install -c pytorch faiss-gpu
+
 pip install -r requirements.txt
 ```
 
----
+The tests and data builder run without model training. GPU inference requires a
+FAISS build exposing `faiss.StandardGpuResources`.
 
-## Running the Pipeline
+## Training
 
-### 1 — Data pipeline (v1)
-
-```bash
-python -m src.data_pipeline \
-    --input     data/raw/documents.jsonl \
-    --output-dir data/processed \
-    --config    configs/default.yaml
-```
-
-Produces `data/processed/sft_chunks.jsonl` (retrieval corpus) and `data/sft/train.jsonl` (2,109 training pairs).
-
-### 1b — Data pipeline (v2 — full FinQA + CoT)
+### 1. Prepare data
 
 ```bash
-python -m src.build_sft_data \
-    --config configs/v2.yaml
+python -m src.build_sft_data
 ```
 
-Produces `data/processed/sft_chunks_v2.jsonl` (4,878 chunks, all val source docs covered) and `data/sft/train_v2.jsonl` (3,439 CoT training pairs).
-
-### 2 — Generate DPO pairs (from SFT data)
+### 2. Inspect an SFT row
 
 ```bash
-python -m src.gen_dpo_data \
-    --sft_data data/sft/train.jsonl \
-    --out      data/dpo/train.jsonl
+python -c "import json; print(json.dumps(json.loads(open('data/sft/train.jsonl', encoding='utf-8').readline()), indent=2))"
 ```
 
-### 3 — SFT training (single GPU)
+### 3. Train the SFT adapter
+
+Start with a five-step smoke run:
 
 ```bash
-# Smoke run (5 steps)
-CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
-    --mode sft --config configs/default.yaml \
-    --data data/sft/train.jsonl --debug
-
-# v1 — 1000 steps (~16 h on Titan X Pascal)
-CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
-    --mode sft --config configs/default.yaml \
-    --data data/sft/train.jsonl
-
-# v2b — 1500 steps on full FinQA + CoT (~24 h)
-CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
-    --mode sft --config configs/v2.yaml \
-    --data data/sft/train_v2.jsonl
+python -m src.alignment \
+  --mode sft \
+  --config configs/default.yaml \
+  --data data/sft/train.jsonl \
+  --debug
 ```
 
-Adapters saved to `outputs/sft_adapter/` (v1) and `outputs/sft_adapter_v2b/` (v2b).
+Remove `--debug` for the configured 1,500-step run. The adapter is written to
+`outputs/sft_adapter/`.
 
-### 4 — DPO training (single GPU)
+### 4. Generate DPO preference pairs
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python -m src.alignment \
-    --mode dpo --config configs/default.yaml \
-    --data data/dpo/train.jsonl \
-    --sft_adapter outputs/sft_adapter
+python -m src.gen_dpo_data
 ```
 
-Adapter saved to `outputs/dpo_adapter/`.
+Inspect several `chosen` and `rejected` pairs before training. A preference
+dataset is useful only when the rejected response is wrong for a meaningful
+reason and is not distinguishable by a trivial formatting cue.
 
-### 5 — Inference (all 5 systems)
+### 5. Train the DPO adapter
 
 ```bash
-# v1 corpus + adapter
-CUDA_VISIBLE_DEVICES=0 python run_inference.py
-# or a subset:
-CUDA_VISIBLE_DEVICES=0 python run_inference.py --systems sft_two_stage_rag
-
-# v2b corpus + adapter
-CUDA_VISIBLE_DEVICES=0 python run_inference.py --v2
+python -m src.alignment \
+  --mode dpo \
+  --config configs/default.yaml \
+  --data data/dpo/train.jsonl \
+  --sft_adapter outputs/sft_adapter \
+  --debug
 ```
 
-Predictions written to `outputs/predictions/<system>.jsonl` (v1) or `outputs/predictions/v2/<system>.jsonl` (v2b).
+DPO must start from the trained SFT adapter. Remove `--debug` for the
+configured 400-step run. The resulting adapter is written to
+`outputs/dpo_adapter/`.
 
-### 6 — Evaluate
+## Inference and Evaluation
+
+Run the SFT and DPO systems:
+
+```bash
+python run_inference.py --systems \
+  sft_two_stage_rag \
+  sft_dpo_two_stage_rag
+```
+
+Predictions are written to `outputs/predictions/<system>.jsonl`. The first RAG
+run builds and saves `outputs/sft_faiss_index/`; later runs reuse it.
+
+Evaluate each prediction file:
 
 ```bash
 python -m src.eval_harness \
-    --predictions outputs/predictions/sft_two_stage_rag.jsonl \
-    --report      outputs/reports/sft_two_stage_rag.json
+  --predictions outputs/predictions/sft_two_stage_rag.jsonl \
+  --report reports/sft_metrics.json
+
+python -m src.eval_harness \
+  --predictions outputs/predictions/sft_dpo_two_stage_rag.jsonl \
+  --report reports/dpo_metrics.json
 ```
 
----
+The report includes JSON validity, numerical accuracy, evidence support,
+refusal accuracy, retrieval recall, and average latency.
 
 ## Repository Layout
 
-```
+```text
 configs/
-  default.yaml          hyperparameters for v1 (model, retrieval, training)
-  v2.yaml               overrides for v2b (1500 steps, v2 adapter/corpus paths)
+  default.yaml             model, retrieval, SFT, and DPO settings
 data/
-  train.json            source FinQA train split (text, tables, QA annotations)
-  dev.json              source FinQA dev split (held-out/eval source)
-  test_private.json     private FinQA test pages without public gold answers
-  *_turn.json           turn-level FinQA variants
-  raw/
-    documents.jsonl     flattened filing-page text: ticker, source_doc_id, text
-  processed/            generated chunks, ticker splits, eval questions, SFT retrieval corpora
-  sft/                  generated SFT JSONL rows (v1/v2)
-  dpo/                  generated DPO chosen/rejected pairs
+  train.json               local FinQA training split
+  dev.json                 local held-out development split
+  *_turn.json              optional conversational variants
+  processed/               generated chunks and evaluation questions
+  sft/                     generated supervised examples
+  dpo/                     generated preference pairs
 outputs/
-  sft_adapter/          v1 SFT LoRA weights (tracked via Git LFS)
-  sft_adapter_v2b/      v2b SFT LoRA weights (compact CoT, capped evidence)
-  dpo_adapter/          DPO LoRA weights (collapsed — see Results)
-  predictions/          v1 per-system prediction JSONL files
-  predictions/v2/       v2b per-system prediction JSONL files
-  reports/              per-system eval JSON reports
+  sft_adapter/             generated SFT LoRA adapter
+  dpo_adapter/             generated DPO LoRA adapter
+  predictions/             generated inference results
+reports/                   generated evaluation reports
 src/
-  data_pipeline.py      ingestion, chunking, ticker-stratified split (v1)
-  build_sft_data.py     full FinQA CoT extraction + hybrid corpus builder (v2b)
-  retrieval_engine.py   GPU FAISS + BGE-large embedder + cross-encoder reranker
-  alignment.py          QLoRA SFT and DPO training (single-GPU, bitsandbytes)
-  gen_dpo_data.py       synthetic DPO pair generation from SFT data
-  rag_pipeline.py       end-to-end inference for all 5 ablation systems
-  eval_harness.py       deterministic scoring (JSON schema, numerical match, refusal)
-run_inference.py        convenience wrapper — runs all systems sequentially (--v2 flag for v2b)
+  build_sft_data.py        FinQA extraction and split preparation
+  alignment.py             QLoRA SFT and DPO training
+  gen_dpo_data.py          preference-pair generation
+  retrieval_engine.py      dense retrieval and reranking
+  rag_pipeline.py          prompting, generation, and prediction writing
+  eval_harness.py          evaluation metrics
+tests/
+  test_build_sft_data.py
+  test_eval_harness.py
+run_inference.py           runs selected comparison systems
 ```
 
----
+## Learning Notes
 
-## Known Limitations
-
-- **Numerical accuracy ceiling (~15%)** — error analysis shows 71% of failures are retrieval failures (the correct number is not in the top-5 retrieved chunks). The model's conditional accuracy given correct retrieval is ~60%. Closing the retrieval gap is the binding constraint, not model quality. Hard negative mining and company-aware retrieval filtering are the most promising next steps.
-- **BM25+dense hybrid retrieval does not help (negative finding)** — adding BM25 with RRF fusion reduced v1 accuracy from 15.3% to 13.3% and dropped JSON validity from 97.3% to 79%. Root cause: FinQA questions use identical templates across companies ("What was the change in net income from 2008 to 2009?"); BM25 keyword matching finds the right metric but from the wrong company, introducing 24% cross-company contamination in the top-1 chunk. Dense retrieval handles company disambiguation via semantic context. Hybrid retrieval is not viable without an explicit company-filtering stage.
-- **DPO requires hard negatives** — rule-perturbed synthetic rejections (wrong arithmetic, swapped operators) are trivially distinguishable. The DPO objective saturates immediately, and extended optimization with a low beta collapses the adapter. Use policy-sampled rejected completions and β ≥ 0.3 for stable DPO on this domain.
-- **Pascal (sm_61) fp16 overflow** — Qwen2.5-7B's attention at layer 27 produces K-values up to ~420 in fp16; the QK^T sum over a 128-dim head reaches ~3.7M, overflowing fp16 max (65,504). Loading with `torch_dtype=float32` avoids this but requires `fp16=False` in the Trainer (no AMP autocasting).
+- SFT and DPO solve different problems. SFT first teaches the desired task and
+  output distribution; DPO then changes relative preferences within that
+  distribution.
+- DPO does not replace SFT. Its policy must be initialized from the SFT adapter
+  used to construct the preference task.
+- The default DPO negatives are synthetic. Their quality is the largest
+  limitation of the preference-learning experiment.
+- The default evaluation questions are answerable FinQA questions, so refusal
+  accuracy is not a balanced refusal benchmark. Add explicit unanswerable
+  examples before drawing conclusions about refusal behavior.
+- The retrieval corpus uses FinQA gold evidence. This isolates alignment
+  behavior, but it is easier than retrieving from complete SEC filings.

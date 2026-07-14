@@ -7,31 +7,30 @@ __pycache__/
 .venv/
 venv/
 env/
+
+# Local documents
 *.docx
-# ML / training artifacts
+
+# Generated training and inference artifacts
+outputs/sft_adapter/*
 outputs/dpo_adapter/*
+outputs/predictions/*
+outputs/sft_faiss_index/
+!outputs/sft_adapter/.gitkeep
 !outputs/dpo_adapter/.gitkeep
+!outputs/predictions/.gitkeep
+*.log
 *.bin
 *.safetensors
 *.pt
 *.pth
 *.ckpt
 *.msgpack
-# SFT adapter tracked via Git LFS — un-ignore files in that directory
-!outputs/sft_adapter/adapter_model.safetensors
-!outputs/sft_adapter/training_args.bin
 
-# Raw datasets — never track / push / clone .json data files
-# (FinQA / ConvFinQA / EDGAR dumps live in data/*.json and are large).
-# NOTE: this matches *.json ONLY — *.jsonl (predictions, sft/dpo splits) is
-# NOT matched and remains trackable. To force-keep a specific json, add an
-# explicit exception below, e.g.  !configs/schema.json
+# Source datasets are large and stay local
 *.json
-!outputs/sft_adapter/*.json
 
-# FAISS indexes / processed artifacts
-*.faiss
-*.index
+# Generated data
 data/processed/*
 data/sft/*
 data/dpo/*
@@ -39,17 +38,14 @@ data/dpo/*
 !data/sft/.gitkeep
 !data/dpo/.gitkeep
 
-# Reports are generated, keep the dir only
+# Generated reports
 reports/*
 !reports/.gitkeep
 
-# HuggingFace / model caches
+# Model and framework caches
 .cache/
 hf_cache/
 .huggingface/
-
-# Models — ignore ANY model (weights, tokenizers, checkpoints) in ANY location.
-# Common local model/checkpoint directories
 models/
 pretrained/
 pretrained_models/
@@ -58,8 +54,6 @@ model_cache/
 checkpoints/
 checkpoint-*/
 **/checkpoint-*/
-# Weight / serialized-model formats not already covered above
-# (.gitignore has NO inline comments — keep notes on their own lines)
 *.model
 *.onnx
 *.gguf
@@ -68,26 +62,23 @@ checkpoint-*/
 *.pb
 *.tflite
 *.mlmodel
-# TensorRT
 *.engine
 *.trt
 *.plan
-# PaddlePaddle / MXNet / Caffe / Torch-legacy
 *.pdparams
 *.params
 *.caffemodel
 *.t7
-# sklearn / generic pickled artifacts
 *.joblib
 *.pkl
 *.pickle
 
-# OS / editor
+# OS and editor files
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 
-# Docx unpack scratch (from document analysis)
+# Document-analysis scratch directories
 unpacked_arch/
 unpacked_playbook/
