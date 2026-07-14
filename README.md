@@ -86,8 +86,25 @@ data/dev.json
       +--> data/processed/questions.jsonl  --> inference and evaluation
 ```
 
-The base model is Qwen2.5-7B-Instruct. Training uses QLoRA: the base model is
-loaded in 4-bit form while small LoRA adapter weights are trained.
+## Models
+
+The project uses three pretrained models:
+
+| Full model name | Hugging Face ID | Role | Trained here? | Why it was chosen |
+|---|---|---|---|---|
+| **Alibaba Qwen 2.5 7B Instruct** | `Qwen/Qwen2.5-7B-Instruct` | Generates the grounded financial answer | Yes: SFT, followed optionally by DPO | Open weights permit local alignment training; instruction tuning provides a useful starting point; the 7B size can be adapted on a 12 GB GPU with QLoRA |
+| **Beijing Academy of Artificial Intelligence General Embedding Large English, Version 1.5** | `BAAI/bge-large-en-v1.5` | Embeds questions and evidence for dense FAISS retrieval | No: used frozen | Provides strong general-purpose English semantic retrieval and works naturally with normalized-vector similarity search |
+| **MS MARCO (Microsoft Machine Reading Comprehension) Cross-Encoder based on MiniLM-L6, Version 2** | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Reranks the retrieved evidence candidates | No: used frozen | Scores each question-evidence pair jointly while remaining smaller and faster than a large reranking model |
+
+Only Qwen is adapted by this project. QLoRA keeps its base weights in 4-bit form
+and trains small rank-16 LoRA adapters. SFT teaches the task and output format;
+DPO optionally adjusts preferences between correct and plausible incorrect
+answers. The embedding and reranking models are not jointly trained with Qwen.
+
+These models are practical choices for the learning objective and available
+hardware, not the winners of a comprehensive model-selection benchmark. The
+`v1.5` and `v2` suffixes are part of the external model names and are
+unrelated to project versions.
 
 ## Dataset
 
