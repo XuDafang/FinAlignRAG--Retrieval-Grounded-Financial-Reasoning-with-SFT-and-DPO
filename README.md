@@ -106,6 +106,71 @@ hardware, not the winners of a comprehensive model-selection benchmark. The
 `v1.5` and `v2` suffixes are part of the external model names and are
 unrelated to project versions.
 
+## How to Read the Code
+
+Follow the data through the project instead of reading files alphabetically.
+This order introduces the SFT/DPO idea first and leaves GPU infrastructure
+until later:
+
+1. **Read this README and the configuration.**
+   [`configs/default.yaml`](configs/default.yaml) provides a compact view of
+   the selected models, retrieval settings, LoRA parameters, SFT steps, and DPO
+   settings.
+
+2. **Read the smallest behavioral examples.**
+   [`tests/test_build_sft_data.py`](tests/test_build_sft_data.py) shows how a
+   FinQA record becomes an SFT row, retrieval chunks, and held-out questions.
+   [`tests/test_eval_harness.py`](tests/test_eval_harness.py) shows what the
+   project considers a correct model response.
+
+3. **Follow raw FinQA data into training data.**
+   In [`src/build_sft_data.py`](src/build_sft_data.py), begin with
+   `_make_sft_record()` and then read `build()`. Together they produce:
+
+   ```text
+   data/train.json -> SFT examples
+   data/dev.json   -> held-out evaluation questions
+   both            -> retrieval evidence chunks
+   ```
+
+4. **Study SFT and DPO prompt formatting and training.**
+   [`src/alignment.py`](src/alignment.py) is the central learning file. Read
+   `_build_prompt()`, `format_sft_samples()`, `format_dpo_pairs()`,
+   `run_sft()`, and `run_dpo()` in that order.
+
+5. **See how DPO preferences are constructed.**
+   [`src/gen_dpo_data.py`](src/gen_dpo_data.py) creates synthetic rejected
+   responses with arithmetic, formula, grounding, and confidence errors. Read
+   the four rejection strategies before `generate_dpo_pairs()`.
+
+6. **Learn the retrieval layer.**
+   [`src/retrieval_engine.py`](src/retrieval_engine.py) defines
+   `FinancialRetrievalEngine`, which embeds evidence, searches the FAISS
+   index, and reranks candidates. The embedding and reranking models remain
+   frozen.
+
+7. **Connect retrieval to answer generation.**
+   [`src/rag_pipeline.py`](src/rag_pipeline.py) defines `RAGPipeline`:
+
+   ```text
+   question -> retrieve evidence -> build prompt -> generate JSON
+   ```
+
+8. **Read orchestration and evaluation last.**
+   [`run_inference.py`](run_inference.py) runs the selected base, SFT, and DPO
+   systems. [`src/eval_harness.py`](src/eval_harness.py) measures JSON
+   validity, numerical accuracy, evidence support, refusal behavior, retrieval
+   recall, and latency.
+
+For a short introduction focused only on model alignment, use:
+
+```text
+README -> build_sft_data.py -> alignment.py -> gen_dpo_data.py -> tests
+```
+
+Leave `retrieval_engine.py` and `run_inference.py` until later; they contain
+more GPU and orchestration details than the core SFT/DPO workflow.
+
 ## Dataset
 
 FinQA is already extracted into JSON. This repository does **not** download or
