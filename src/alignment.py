@@ -133,6 +133,8 @@ def _to_json_str(value: Any) -> str:
 
 def _build_prompt(context: str, question: str) -> str:
     """ChatML prompt (system + user) ending at the assistant turn."""
+    # ChatML gives the model a stable conversation scaffold, 
+    # and this code uses it to make the fine-tuned model behave like a chat assistant that answers from context.
     return (
         f"<|im_start|>system\n{_SYSTEM_PROMPT}<|im_end|>\n"
         f"<|im_start|>user\nContext:\n{context}\n\nQuestion: {question}<|im_end|>\n"
@@ -192,8 +194,12 @@ def _load_base_model(config: TrainingConfig) -> AutoModelForCausalLM:
     4-bit NF4 + double-quant: 7B × ~0.5 bytes ≈ 3.8 GB, fits on a single 12 GB GPU.
     Float32 compute is used for the dequant matmul path to avoid Pascal overflow.
     """
+    # bitsandbytes is a Python library for loading and training large models more efficiently, 
+    # mainly by using low-bit quantization and memory-saving optimizers.
     from transformers import BitsAndBytesConfig
 
+    # BitsAndBytesConfig is a configuration class from the Transformers library used to tell 
+    # the model loader how to use bitsandbytes for quantized loading.
     bnb_cfg = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
