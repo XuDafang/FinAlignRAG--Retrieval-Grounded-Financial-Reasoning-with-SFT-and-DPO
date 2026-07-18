@@ -2,7 +2,7 @@
 
 Two separate training stages using QLoRA (4-bit NF4 + LoRA) on a single GPU:
   * ``run_sft``  — supervised fine-tuning for JSON-schema adherence, calculation
-                   formatting and graceful refusal, via TRL ``SFTTrainer``.
+                   formatting and graceful refusal, via Transformer Reinforcement Learning (TRL) ``SFTTrainer``.
   * ``run_dpo``  — preference optimization (reduce arithmetic drift / ungrounded
                    claims), via TRL ``DPOTrainer``, initialized from base+SFT adapter.
 
