@@ -43,6 +43,7 @@ DPO_ADAPTER = "outputs/dpo_adapter"
 QUESTIONS = "data/processed/questions.jsonl"
 PREDICTIONS = "outputs/predictions"
 
+# Run the ablation systems in a fixed order so repeated runs are comparable.
 SYSTEM_ORDER = [
     "base_no_rag",
     "base_simple_rag",
@@ -51,6 +52,7 @@ SYSTEM_ORDER = [
     "sft_dpo_two_stage_rag",
 ]
 
+# These are the systems that need retrieval; the first system is pure generation.
 RAG_SYSTEMS = {"base_simple_rag", "base_two_stage_rag", "sft_two_stage_rag", "sft_dpo_two_stage_rag"}
 
 
@@ -82,10 +84,12 @@ def run_system(
         "sft_dpo_two_stage_rag": dpo_adapter,
     }
 
+    # Each system uses the same pipeline class; only the adapter path changes.
     adapter = adapter_map[system]
     pipeline = RAGPipeline(system_name=system, config=config, adapter_path=adapter)
 
     if system in RAG_SYSTEMS:
+        # Reuse a pre-built FAISS index when available; otherwise build it once.
         if index_built and os.path.exists(index_dir):
             logger.info("Loading pre-built FAISS index from %s", index_dir)
             pipeline.load_index(index_dir)
@@ -106,6 +110,7 @@ def run_system(
     elapsed = time.perf_counter() - t0
     logger.info("[%s] Done — %.0f s total, saved to %s", system, elapsed, out_path)
 
+    # Explicit cleanup keeps GPU memory stable across multiple systems.
     del pipeline
     gc.collect()
     torch.cuda.empty_cache()
@@ -131,6 +136,7 @@ def main() -> None:
     dpo_adapter = DPO_ADAPTER
     predictions_dir = PREDICTIONS
 
+    # Track whether the retrieval index already exists so later systems can reuse it.
     index_built = os.path.exists(index_dir)
 
     for system in args.systems:
